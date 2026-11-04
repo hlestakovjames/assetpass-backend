@@ -10,6 +10,7 @@ export default new DataSource({
   ssl: env.DB_SSL
     ? { rejectUnauthorized: env.DB_SSL_REJECT_UNAUTHORIZED as boolean }
     : false,
+  uuidExtension: 'pgcrypto',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   migrationsTableName: 'assetpass_migrations',
