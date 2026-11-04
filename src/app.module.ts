@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { validateEnvironment } from './config/env.validation';
 import { HealthModule } from './health/health.module';
+import { IdentityModule } from './identity/identity.module';
+import { PlatformGovernanceModule } from './platform-governance/platform-governance.module';
+import { AuditModule } from './audit/audit.module';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -25,6 +30,7 @@ import { AppService } from './app.service';
               ),
             }
           : false,
+        uuidExtension: 'pgcrypto',
         autoLoadEntities: true,
         synchronize: false,
         migrationsRun: false,
@@ -38,6 +44,9 @@ import { AppService } from './app.service';
       }),
     }),
     HealthModule,
+    IdentityModule,
+    PlatformGovernanceModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],
