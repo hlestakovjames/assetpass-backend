@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { IdentityModule } from './identity/identity.module';
 import { PlatformGovernanceModule } from './platform-governance/platform-governance.module';
 import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -47,6 +48,7 @@ import { AppService } from './app.service';
     IdentityModule,
     PlatformGovernanceModule,
     AuditModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

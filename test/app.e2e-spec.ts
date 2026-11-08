@@ -2,7 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+
+// Establish deterministic test configuration before importing AppModule.
+// This prevents an inherited or malformed shell APP_ORIGIN from breaking
+// application initialization during the E2E test.
+process.env.APP_ORIGIN = 'http://localhost:3000';
+
+const { AppModule } = require('../src/app.module') as
+  typeof import('../src/app.module');
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -24,6 +31,8 @@ describe('AppController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 });
