@@ -14,6 +14,12 @@ export enum UserStatus {
   SUSPENDED = 'suspended',
 }
 
+export enum UserApprovalStatus {
+  PENDING_REVIEW = 'pending_review',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 @Entity('users')
 @Unique('UQ_users_email', ['email'])
 @Check('CHK_users_email_lowercase', '"email" = LOWER("email")')
@@ -37,6 +43,24 @@ export class User {
     default: UserStatus.ACTIVE,
   })
   status: UserStatus;
+
+  @Column({
+    name: 'approval_status',
+    type: 'enum',
+    enum: UserApprovalStatus,
+    enumName: 'user_approval_status',
+    default: UserApprovalStatus.APPROVED,
+  })
+  approvalStatus: UserApprovalStatus;
+
+  @Column({ name: 'approval_reviewed_by_user_id', type: 'uuid', nullable: true })
+  approvalReviewedByUserId: string | null;
+
+  @Column({ name: 'approval_reviewed_at', type: 'timestamptz', nullable: true })
+  approvalReviewedAt: Date | null;
+
+  @Column({ name: 'approval_note', type: 'text', nullable: true })
+  approvalNote: string | null;
 
   @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
   emailVerifiedAt: Date | null;

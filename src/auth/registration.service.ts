@@ -6,8 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
-import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
-import { User, UserStatus } from '../identity/entities/user.entity';
+import { DataSource, In, IsNull, MoreThan, Repository } from 'typeorm';
+import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 import { EmailVerification } from './email-verification.entity';
 import { EmailDeliveryService } from './email-delivery.service';
 
@@ -48,6 +48,10 @@ export class RegistrationService {
           email,
           passwordHash,
           status: UserStatus.INACTIVE,
+          approvalStatus: UserApprovalStatus.PENDING_REVIEW,
+          approvalReviewedByUserId: null,
+          approvalReviewedAt: null,
+          approvalNote: null,
           emailVerifiedAt: null,
           isFoundingAssetManager: false,
           lastLoginAt: null,
@@ -97,8 +101,10 @@ export class RegistrationService {
       verification.usedAt = new Date();
       await verificationRepo.save(verification);
 
-      if (user.status === UserStatus.INACTIVE) user.status = UserStatus.ACTIVE;
       user.emailVerifiedAt = user.emailVerifiedAt ?? new Date();
+      if (user.approvalStatus === UserApprovalStatus.APPROVED && user.status === UserStatus.INACTIVE) {
+        user.status = UserStatus.ACTIVE;
+      }
       await userRepo.save(user);
 
       await verificationRepo.createQueryBuilder()
@@ -107,7 +113,15 @@ export class RegistrationService {
         .where('user_id = :userId AND used_at IS NULL', { userId: user.id })
         .execute();
 
-      return { message: 'Your email address has been verified. You can now sign in.' };
+      if (user.approvalStatus === UserApprovalStatus.APPROVED) {
+        return { message: 'Your email address has been verified. You can now sign in.' };
+      }
+
+      if (user.approvalStatus === UserApprovalStatus.REJECTED) {
+        return { message: 'Your email address has been verified, but this account was not approved for access.' };
+      }
+
+      return { message: 'Your email address has been verified. Your account is now awaiting AssetPass administrator approval before sign-in.' };
     });
   }
 
@@ -118,7 +132,13 @@ export class RegistrationService {
     }
 
     const user = await this.users.findOne({
-      where: { email, status: UserStatus.INACTIVE, emailVerifiedAt: IsNull(), deactivatedAt: IsNull() },
+      where: {
+        email,
+        status: UserStatus.INACTIVE,
+        approvalStatus: In([UserApprovalStatus.PENDING_REVIEW, UserApprovalStatus.APPROVED]),
+        emailVerifiedAt: IsNull(),
+        deactivatedAt: IsNull(),
+      },
     });
     if (!user) return { message: GENERIC_MESSAGE };
 
