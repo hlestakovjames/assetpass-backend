@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
-import { DataSource, MoreThan, Repository } from 'typeorm';
+import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
 import { User, UserStatus } from '../identity/entities/user.entity';
 import { EmailVerification } from './email-verification.entity';
 import { ResendEmailService } from './resend-email.service';
@@ -118,7 +118,7 @@ export class RegistrationService {
     }
 
     const user = await this.users.findOne({
-      where: { email, status: UserStatus.INACTIVE, emailVerifiedAt: null, deactivatedAt: null },
+      where: { email, status: UserStatus.INACTIVE, emailVerifiedAt: IsNull(), deactivatedAt: IsNull() },
     });
     if (!user) return { message: GENERIC_MESSAGE };
 
