@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
-import { AuthenticatedIdentity } from '../auth/auth.service';
+import type { Request } from 'express';
+import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequirePlatformPermission } from '../access-control/platform-permission.decorator';
 import { PlatformPermissionGuard } from '../access-control/platform-permission.guard';
