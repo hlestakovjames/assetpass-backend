@@ -1,13 +1,11 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, MoreThan, Repository } from 'typeorm';
 import { User, UserStatus } from '../identity/entities/user.entity';
 import { EmailVerification } from './email-verification.entity';
 import { ResendEmailService } from './resend-email.service';
@@ -117,6 +115,12 @@ export class RegistrationService {
       where: { email, status: UserStatus.INACTIVE, emailVerifiedAt: null, deactivatedAt: null },
     });
     if (!user) return { message: GENERIC_MESSAGE };
+
+    const recentlyIssued = await this.verifications.findOne({
+      where: { userId: user.id, createdAt: MoreThan(new Date(Date.now() - 60_000)) },
+      order: { createdAt: 'DESC' },
+    });
+    if (recentlyIssued) return { message: GENERIC_MESSAGE };
 
     const token = randomBytes(32).toString('base64url');
     await this.dataSource.transaction(async (manager) => {
