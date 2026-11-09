@@ -4,7 +4,7 @@ export class CreateAssetRegistrationFoundation1794400000000 implements Migration
   name = 'CreateAssetRegistrationFoundation1794400000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`CREATE TYPE "asset_party_type" AS ENUM ('individual', 'organization', 'platform')`);
+    await queryRunner.query(`CREATE TYPE "asset_party_type" AS ENUM ('individual', 'organization', 'platform', 'external')`);
     await queryRunner.query(`CREATE TYPE "asset_registration_status" AS ENUM ('draft', 'submitted', 'under_review', 'approved', 'rejected', 'cancelled')`);
     await queryRunner.query(`CREATE TYPE "asset_status" AS ENUM ('active', 'under_maintenance', 'retired', 'disposed')`);
     await queryRunner.query(`CREATE SEQUENCE "assetpass_asset_id_seq" START 1 INCREMENT 1 NO CYCLE`);
@@ -15,17 +15,22 @@ export class CreateAssetRegistrationFoundation1794400000000 implements Migration
         "party_type" "asset_party_type" NOT NULL,
         "user_id" uuid REFERENCES "users"("id") ON DELETE RESTRICT,
         "organization_id" uuid REFERENCES "organizations"("id") ON DELETE RESTRICT,
+        "external_asset_party_id" uuid,
         "is_assetpass_platform_party" boolean NOT NULL DEFAULT false,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "CHK_asset_parties_exactly_one_subject" CHECK (
-          ("party_type" = 'individual' AND "user_id" IS NOT NULL AND "organization_id" IS NULL AND "is_assetpass_platform_party" = false)
-          OR ("party_type" = 'organization' AND "user_id" IS NULL AND "organization_id" IS NOT NULL AND "is_assetpass_platform_party" = false)
-          OR ("party_type" = 'platform' AND "user_id" IS NULL AND "organization_id" IS NULL AND "is_assetpass_platform_party" = true)
+          ("party_type" = 'individual' AND "user_id" IS NOT NULL AND "organization_id" IS NULL AND "external_asset_party_id" IS NULL AND "is_assetpass_platform_party" = false)
+          OR ("party_type" = 'organization' AND "user_id" IS NULL AND "organization_id" IS NOT NULL AND "external_asset_party_id" IS NULL AND "is_assetpass_platform_party" = false)
+          OR ("party_type" = 'platform' AND "user_id" IS NULL AND "organization_id" IS NULL AND "external_asset_party_id" IS NULL AND "is_assetpass_platform_party" = true)
+          OR ("party_type" = 'external' AND "user_id" IS NULL AND "organization_id" IS NULL AND "external_asset_party_id" IS NOT NULL AND "is_assetpass_platform_party" = false)
         )
       )
     `);
     await queryRunner.query(`CREATE UNIQUE INDEX "UQ_asset_parties_user" ON "asset_parties" ("user_id") WHERE "user_id" IS NOT NULL`);
     await queryRunner.query(`CREATE UNIQUE INDEX "UQ_asset_parties_organization" ON "asset_parties" ("organization_id") WHERE "organization_id" IS NOT NULL`);
+    await queryRunner.query(`CREATE TABLE "external_asset_parties" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "display_name" varchar(200) NOT NULL, "party_kind" varchar(50) NOT NULL, "jurisdiction_code" varchar(10), "external_reference" varchar(150), "created_at" timestamptz NOT NULL DEFAULT now(), "updated_at" timestamptz NOT NULL DEFAULT now(), "deactivated_at" timestamptz)`);
+    await queryRunner.query(`ALTER TABLE "asset_parties" ADD CONSTRAINT "FK_asset_parties_external" FOREIGN KEY ("external_asset_party_id") REFERENCES "external_asset_parties"("id") ON DELETE RESTRICT`);
+    await queryRunner.query(`CREATE UNIQUE INDEX "UQ_asset_parties_external" ON "asset_parties" ("external_asset_party_id") WHERE "external_asset_party_id" IS NOT NULL`);
     await queryRunner.query(`CREATE UNIQUE INDEX "UQ_asset_parties_platform" ON "asset_parties" ("is_assetpass_platform_party") WHERE "is_assetpass_platform_party" = true`);
 
     await queryRunner.query(`
@@ -166,6 +171,7 @@ export class CreateAssetRegistrationFoundation1794400000000 implements Migration
     await queryRunner.query(`DROP TABLE "asset_registration_applications"`);
     await queryRunner.query(`DROP TABLE "assets"`);
     await queryRunner.query(`DROP TABLE "asset_parties"`);
+    await queryRunner.query(`DROP TABLE "external_asset_parties"`);
     await queryRunner.query(`DROP SEQUENCE "assetpass_asset_id_seq"`);
     await queryRunner.query(`DROP TYPE "asset_status"`);
     await queryRunner.query(`DROP TYPE "asset_registration_status"`);
