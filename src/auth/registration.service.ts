@@ -36,6 +36,7 @@ type CommonRegistration = {
   occupation?: string;
   preferredContactMethod?: 'email' | 'phone';
   termsAccepted?: boolean;
+  privacyNoticeAcknowledged?: boolean;
 };
 
 type OrganizationRegistration = CommonRegistration & {
@@ -91,7 +92,7 @@ export class RegistrationService {
       throw new BadRequestException('Use a password containing at least 12 characters.');
     }
     if (!phoneNumber || !isPhone(phoneNumber)) throw new BadRequestException('Enter a valid mobile phone number.');
-    if (input.termsAccepted !== true) throw new BadRequestException('You must accept the terms of service and privacy notice to create an account.');
+    if (input.termsAccepted !== true || input.privacyNoticeAcknowledged !== true) throw new BadRequestException('You must accept the terms of service and acknowledge the privacy notice to create an account.');
     if (input.alternativePhone && !isPhone(normalizePhone(input.alternativePhone))) {
       throw new BadRequestException('Enter a valid alternative phone number.');
     }
