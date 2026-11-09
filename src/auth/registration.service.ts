@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
@@ -12,6 +13,7 @@ import { ResendEmailService } from './resend-email.service';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 const GENERIC_MESSAGE = 'If the address can be registered, a verification email will be sent shortly.';
+const logger = new Logger('RegistrationService');
 
 @Injectable()
 export class RegistrationService {
@@ -60,8 +62,12 @@ export class RegistrationService {
         return created;
       });
 
-      await this.email.sendVerificationEmail(user.email, user.fullName, token);
-      return { message: 'Your account has been created. Check your inbox for a verification link.' };
+      try {
+        await this.email.sendVerificationEmail(user.email, user.fullName, token);
+      } catch (error) {
+        logger.error('Verification email delivery failed.');
+      }
+      return { message: GENERIC_MESSAGE };
     } catch (error) {
       if (isUniqueViolation(error)) return { message: GENERIC_MESSAGE };
       throw error;
@@ -135,7 +141,11 @@ export class RegistrationService {
       });
     });
 
-    await this.email.sendVerificationEmail(user.email, user.fullName, token);
+    try {
+      await this.email.sendVerificationEmail(user.email, user.fullName, token);
+    } catch (error) {
+      logger.error('Verification email resend failed.');
+    }
     return { message: GENERIC_MESSAGE };
   }
 }
