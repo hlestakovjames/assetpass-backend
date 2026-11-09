@@ -64,18 +64,18 @@ export class AssetsService {
     if (cost !== undefined && (!Number.isFinite(cost) || cost < 0 || cost > 999999999999.99)) {
       throw new BadRequestException('Enter a valid non-negative acquisition cost.');
     }
-    const date = input.acquisitionDate?.trim();
+    const date = typeof input.acquisitionDate === 'string' ? input.acquisitionDate.trim() : input.acquisitionDate == null ? '' : 'invalid';
     if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))) {
       throw new BadRequestException('Enter the acquisition date in YYYY-MM-DD format.');
     }
-    const currency = input.currencyCode?.trim().toUpperCase();
+    const currency = typeof input.currencyCode === 'string' ? input.currencyCode.trim().toUpperCase() : input.currencyCode == null ? '' : 'INVALID';
     if (currency && !/^[A-Z]{3}$/.test(currency)) throw new BadRequestException('Enter a valid three-letter currency code.');
     return {
       name, condition, ownershipBasis, evidence,
-      description: input.description?.trim().slice(0, 10000) || null,
-      serialNumber: input.serialNumber?.trim().slice(0, 200) || null,
-      manufacturer: input.manufacturer?.trim().slice(0, 150) || null,
-      model: input.model?.trim().slice(0, 150) || null,
+      description: optionalText(input.description, 10000),
+      serialNumber: optionalText(input.serialNumber, 200),
+      manufacturer: optionalText(input.manufacturer, 150),
+      model: optionalText(input.model, 150),
       acquisitionDate: date || null,
       acquisitionCost: cost === undefined ? null : cost.toFixed(2),
       currencyCode: currency || null,
@@ -169,7 +169,6 @@ export class AssetsService {
   }
 
   async reviewOrganizationRegistration(actorUserId: string, organizationId: string, applicationId: string, input: ReviewAssetRegistrationInput) {
-    await this.assertOrganizationPermission(this.dataSource.manager, actorUserId, organizationId, 'organization.assets.review');
     return this.review(actorUserId, applicationId, input, organizationId);
   }
 
@@ -182,6 +181,7 @@ export class AssetsService {
       throw new BadRequestException('Choose approve or reject and provide a decision reason of at least five characters.');
     }
     return this.dataSource.transaction(async (manager) => {
+      if (organizationId) await this.assertOrganizationPermission(manager, actorUserId, organizationId, 'organization.assets.review');
       const appRepo = manager.getRepository(AssetRegistrationApplication);
       const application = await appRepo.findOne({ where: { id: applicationId }, lock: { mode: 'pessimistic_write' } });
       if (!application) throw new NotFoundException('Asset registration application not found.');
@@ -284,6 +284,13 @@ export class AssetsService {
       decisionReason: item.decisionReason, assetId: item.approvedAssetId,
     };
   }
+}
+
+function optionalText(value: unknown, maxLength: number): string | null {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string') throw new BadRequestException('Optional asset details must be text.');
+  const result = value.trim();
+  return result ? result.slice(0, maxLength) : null;
 }
 
 function cryptoRandomReference() {
