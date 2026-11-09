@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateAssetRegistrationFoundation1794400000000 implements MigrationInterface {
-  name = 'CreateAssetRegistrationFoundation1794400000';
+  name = 'CreateAssetRegistrationFoundation1794400000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE TYPE "asset_party_type" AS ENUM ('individual', 'organization', 'platform', 'external')`);
