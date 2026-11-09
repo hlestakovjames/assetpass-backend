@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { Repository } from 'typeorm';
 
-import { User, UserStatus } from '../identity/entities/user.entity';
+import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 
 export type AuthenticatedIdentity = Pick<
   User,
@@ -34,6 +34,7 @@ export class AuthService {
         email: true,
         passwordHash: true,
         status: true,
+        approvalStatus: true,
         deactivatedAt: true,
       },
     });
@@ -46,6 +47,7 @@ export class AuthService {
       !user ||
       !passwordMatches ||
       user.status !== UserStatus.ACTIVE ||
+      user.approvalStatus !== UserApprovalStatus.APPROVED ||
       user.deactivatedAt !== null
     ) {
       throw new UnauthorizedException('Invalid email or password.');

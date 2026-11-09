@@ -73,7 +73,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(BrowserOriginGuard)
-  register(@Body() body: { fullName: string; email: string; password: string }) {
+  register(@Body() body: Parameters<RegistrationService['register']>[0]) {
     return this.registrationService.register(body);
   }
 

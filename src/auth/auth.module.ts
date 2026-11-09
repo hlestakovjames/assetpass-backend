@@ -5,6 +5,11 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { IdentityModule } from '../identity/identity.module';
+import { UserProfile } from '../identity/entities/user-profile.entity';
+import { UserConsent } from '../identity/entities/user-consent.entity';
+import { Organization } from '../organizations/entities/organization.entity';
+import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
+import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { AuthSession } from './auth-session.entity';
 import { EmailVerification } from './email-verification.entity';
 import { AccessTokenService } from './access-token.service';
@@ -37,7 +42,15 @@ import { AuthCookies } from './utils/auth-cookies';
         },
       }),
     }),
-    TypeOrmModule.forFeature([AuthSession, EmailVerification]),
+    TypeOrmModule.forFeature([
+      AuthSession,
+      EmailVerification,
+      UserProfile,
+      UserConsent,
+      Organization,
+      OrganizationMembership,
+      PlatformAuditLog,
+    ]),
   ],
   controllers: [AuthController],
   providers: [
