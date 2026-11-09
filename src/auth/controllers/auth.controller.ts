@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -78,10 +77,11 @@ export class AuthController {
     return this.registrationService.register(body);
   }
 
-  @Get('verify-email')
+  @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  verifyEmail(@Query('token') token: string) {
-    return this.registrationService.verify(token);
+  @UseGuards(BrowserOriginGuard)
+  verifyEmail(@Body() body: { token: string }) {
+    return this.registrationService.verify(body?.token);
   }
 
   @Post('resend-verification')
