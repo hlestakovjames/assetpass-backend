@@ -326,11 +326,24 @@ function validateOrganization(input: OrganizationRegistration) {
   const authorityConfirmed = typeof input.authorityConfirmation === 'string' && input.authorityConfirmation.trim().toLowerCase() === 'yes';
   const registrationNumber = cleanOptional(input.registrationNumber, 100);
   const registrationDate = cleanOptional(input.registrationDate, 10);
+  const alternativeEmail = cleanOptional(input.alternativeEmail, 320);
+  const website = cleanOptional(input.website, 500);
   if (!displayName || !organizationType || !contactEmail || !isEmail(contactEmail) || !contactPhone || !isPhone(contactPhone) || !physicalAddress || !primaryContactPosition || !registrationContactRelationship || !authorityConfirmed) {
     throw new BadRequestException('Organization name, type, official email, official phone, physical address, contact position and registration authority confirmation are required.');
   }
   if (registrationDate && (!/^\d{4}-\d{2}-\d{2}$/.test(registrationDate) || Number.isNaN(Date.parse(registrationDate)) || new Date(registrationDate).toISOString().slice(0, 10) !== registrationDate)) {
     throw new BadRequestException('Enter a valid registration date in YYYY-MM-DD format.');
+  }
+  if (alternativeEmail && !isEmail(alternativeEmail)) {
+    throw new BadRequestException('Enter a valid alternative organization email address.');
+  }
+  if (website) {
+    try {
+      const parsedWebsite = new URL(website);
+      if (!['http:', 'https:'].includes(parsedWebsite.protocol)) throw new Error('Unsupported protocol');
+    } catch {
+      throw new BadRequestException('Enter a valid organization website URL, including https://.');
+    }
   }
   if (registrationNumber && !registrationDate && input.registrationDate) {
     throw new BadRequestException('Enter a valid registration date.');
@@ -350,8 +363,8 @@ function validateOrganization(input: OrganizationRegistration) {
     registrationDate,
     contactEmail,
     contactPhone,
-    alternativeEmail: cleanOptional(input.alternativeEmail, 320),
-    website: cleanOptional(input.website, 500),
+    alternativeEmail,
+    website,
     description: cleanOptional(input.description, 10000),
     countryCode,
     county: cleanOptional(input.county, 160),
