@@ -1,5 +1,7 @@
 import { DataSource, Repository } from 'typeorm';
 import { UserProfile } from '../identity/entities/user-profile.entity';
+import { UserStatus } from '../identity/entities/user.entity';
+import { AuthenticatedIdentity } from './auth.service';
 import { IdentityResolutionService } from './identity-resolution.service';
 
 describe('IdentityResolutionService', () => {
@@ -11,8 +13,8 @@ describe('IdentityResolutionService', () => {
     id: '9fed3a07-5a17-4b94-8437-552edeebf5a6',
     fullName: 'Test User',
     email: 'test@example.com',
-    status: 'active',
-  };
+    status: UserStatus.ACTIVE,
+  } as AuthenticatedIdentity;
 
   beforeEach(() => {
     query = jest.fn();
