@@ -33,6 +33,9 @@ export class ExpandRegistrationProfiles1794200000000 implements MigrationInterfa
     await queryRunner.query(`
       ALTER TABLE "organizations"
         ADD COLUMN "organization_type" varchar(80),
+        ADD COLUMN "primary_contact_position" varchar(160),
+        ADD COLUMN "registration_contact_relationship" varchar(120),
+        ADD COLUMN "authority_confirmed_at" timestamptz,
         ADD COLUMN "industry_sector" varchar(120),
         ADD COLUMN "legal_structure" varchar(80),
         ADD COLUMN "registration_authority" varchar(160),
@@ -68,6 +71,9 @@ export class ExpandRegistrationProfiles1794200000000 implements MigrationInterfa
         DROP COLUMN "registration_authority",
         DROP COLUMN "legal_structure",
         DROP COLUMN "industry_sector",
+        DROP COLUMN "authority_confirmed_at",
+        DROP COLUMN "registration_contact_relationship",
+        DROP COLUMN "primary_contact_position",
         DROP COLUMN "organization_type"
     `);
     await queryRunner.query('DROP TABLE "user_profiles"');
