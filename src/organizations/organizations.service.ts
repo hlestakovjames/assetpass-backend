@@ -32,7 +32,7 @@ export class OrganizationsService {
       throw new BadRequestException('A valid organization name, category and contact email are required.');
     }
     const registrationNumber = input.registrationNumber?.trim() || null;
-    if (registrationNumber && await this.organizations.exist({ where: { registrationNumber } })) {
+    if (registrationNumber && await this.organizations.findOneBy({ registrationNumber })) {
       throw new ConflictException('An organization with this registration number already exists.');
     }
     return this.dataSource.transaction(async (manager) => {
