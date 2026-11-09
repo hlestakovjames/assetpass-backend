@@ -3,6 +3,7 @@ import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import { UserProfile } from '../identity/entities/user-profile.entity';
+import { UserConsent } from '../identity/entities/user-consent.entity';
 import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 import { EmailVerification } from './email-verification.entity';
 
@@ -19,6 +20,7 @@ describe('RegistrationService early-launch registration', () => {
     const repositories = new Map<unknown, ReturnType<typeof makeRepo>>([
       [User, makeRepo()],
       [UserProfile, makeRepo()],
+      [UserConsent, makeRepo()],
       [Organization, makeRepo()],
       [OrganizationMembership, makeRepo()],
       [PlatformAuditLog, makeRepo()],
@@ -46,6 +48,7 @@ describe('RegistrationService early-launch registration', () => {
     const profileRepo = repositories.get(UserProfile)!;
     const auditRepo = repositories.get(PlatformAuditLog)!;
     const verificationRepo = repositories.get(EmailVerification)!;
+    const consentRepo = repositories.get(UserConsent)!;
 
     const result = await service.register({
       accountType: 'individual',
@@ -56,6 +59,7 @@ describe('RegistrationService early-launch registration', () => {
       password: 'a-secure-password-123',
       phoneNumber: '+254712345678',
       countryCode: 'KE',
+      termsAccepted: true,
     });
 
     expect(userRepo.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -72,6 +76,10 @@ describe('RegistrationService early-launch registration', () => {
       phoneNumber: '+254712345678',
     }));
     expect(verificationRepo.save).not.toHaveBeenCalled();
+    expect(consentRepo.save).toHaveBeenCalledWith([
+      expect.objectContaining({ userId: 'record-1', consentType: 'terms_of_service', version: '2026-11-09', acceptedAt: expect.any(Date) }),
+      expect.objectContaining({ userId: 'record-1', consentType: 'privacy_notice', version: '2026-11-09', acceptedAt: expect.any(Date) }),
+    ]);
     expect(email.sendVerificationEmail).not.toHaveBeenCalled();
     expect(auditRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       action: 'auth.user.registered',
@@ -105,6 +113,7 @@ describe('RegistrationService early-launch registration', () => {
       contactEmail: 'info@example.org',
       contactPhone: '+254700000000',
       physicalAddress: 'Kisumu, Kenya',
+      termsAccepted: true,
       position: 'Director',
       registrationRelationship: 'Director',
       authorityConfirmation: 'YES',
@@ -138,6 +147,7 @@ describe('RegistrationService early-launch registration', () => {
       contactEmail: 'info@example.org',
       contactPhone: '',
       physicalAddress: '',
+      termsAccepted: true,
       position: 'Director',
       registrationRelationship: 'Director',
       authorityConfirmation: 'YES',
