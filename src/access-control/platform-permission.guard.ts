@@ -5,7 +5,7 @@ import { IsNull, Repository } from 'typeorm';
 import { PlatformRole, PlatformRoleName } from '../platform-governance/entities/platform-role.entity';
 import { Permission } from './entities/permission.entity';
 import { PlatformRolePermission } from './entities/platform-role-permission.entity';
-import { PLATFORM_PERMISSION_KEY } from './platform-permission.decorator';
+import { PLATFORM_OWNER_ONLY_KEY, PLATFORM_PERMISSION_KEY } from './platform-permission.decorator';
 
 @Injectable()
 export class PlatformPermissionGuard implements CanActivate {
@@ -17,15 +17,18 @@ export class PlatformPermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const ownerOnly = this.reflector.getAllAndOverride<boolean>(PLATFORM_OWNER_ONLY_KEY, [context.getHandler(), context.getClass()]);
     const key = this.reflector.getAllAndOverride<string>(PLATFORM_PERMISSION_KEY, [context.getHandler(), context.getClass()]);
-    if (!key) return true;
+    if (!ownerOnly && !key) return true;
     const request = context.switchToHttp().getRequest<{ user?: { id?: string } }>();
     const userId = request.user?.id;
     if (!userId) throw new ForbiddenException('Platform access is required.');
     const roles = await this.platformRoles.find({ where: { userId, revokedAt: IsNull() } });
-    if (roles.some((role) => role.role === PlatformRoleName.OWNER)) return true;
+    const owner = roles.some((role) => role.role === PlatformRoleName.OWNER);
+    if (owner) return true;
+    if (ownerOnly) throw new ForbiddenException('Only the Platform Owner can perform this action.');
     const administrator = roles.find((role) => role.role === PlatformRoleName.ADMINISTRATOR);
-    if (!administrator) throw new ForbiddenException('Platform access is required.');
+    if (!administrator || !key) throw new ForbiddenException('Platform access is required.');
     const permission = await this.permissions.findOneBy({ key });
     if (!permission) throw new ForbiddenException('Permission is not registered.');
     const grant = await this.grants.findOneBy({ platformRoleId: administrator.id, permissionId: permission.id });
