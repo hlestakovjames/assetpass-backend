@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
-import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
+import { DataSource, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 import { EmailVerification } from './email-verification.entity';
 import { EmailDeliveryService } from './email-delivery.service';
@@ -135,7 +135,7 @@ export class RegistrationService {
       where: {
         email,
         status: UserStatus.INACTIVE,
-        approvalStatus: UserApprovalStatus.PENDING_REVIEW,
+        approvalStatus: In([UserApprovalStatus.PENDING_REVIEW, UserApprovalStatus.APPROVED]),
         emailVerifiedAt: IsNull(),
         deactivatedAt: IsNull(),
       },
