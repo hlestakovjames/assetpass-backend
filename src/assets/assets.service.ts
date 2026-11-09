@@ -147,10 +147,9 @@ export class AssetsService {
       applicationId: application.id, evidenceType: item.evidenceType, objectReference: upload.objectKey,
       uploadedByUserId: userId, verificationStatus: EvidenceVerificationStatus.PENDING,
     })));
-    await uploadRepo.update(
-      evidenceUploads.map(({ upload }) => upload.id),
-      { status: AssetEvidenceUploadStatus.ATTACHED, attachedAt: new Date() },
-    );
+    await Promise.all(evidenceUploads.map(({ upload }) =>
+      uploadRepo.update({ id: upload.id }, { status: AssetEvidenceUploadStatus.ATTACHED, attachedAt: new Date() }),
+    ));
     await manager.getRepository(PlatformAuditLog).save({
       actorUserId: userId, action: 'asset.registration.submitted', entityType: 'asset_registration_application',
       entityId: application.id, outcome: 'success', reason: null,
