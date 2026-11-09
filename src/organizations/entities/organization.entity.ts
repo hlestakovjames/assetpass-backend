@@ -17,6 +17,9 @@ export class Organization {
   @Column({ name: 'legal_name', type: 'varchar', length: 250, nullable: true }) legalName: string | null;
   @Column({ type: 'varchar', length: 80 }) category: string;
   @Column({ name: 'organization_type', type: 'varchar', length: 80, nullable: true }) organizationType: string | null;
+  @Column({ name: 'primary_contact_position', type: 'varchar', length: 160, nullable: true }) primaryContactPosition: string | null;
+  @Column({ name: 'registration_contact_relationship', type: 'varchar', length: 120, nullable: true }) registrationContactRelationship: string | null;
+  @Column({ name: 'authority_confirmed_at', type: 'timestamptz', nullable: true }) authorityConfirmedAt: Date | null;
   @Column({ name: 'industry_sector', type: 'varchar', length: 120, nullable: true }) industrySector: string | null;
   @Column({ name: 'legal_structure', type: 'varchar', length: 80, nullable: true }) legalStructure: string | null;
   @Column({ name: 'registration_number', type: 'varchar', length: 100, nullable: true }) registrationNumber: string | null;
