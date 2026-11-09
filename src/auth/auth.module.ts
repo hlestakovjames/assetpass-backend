@@ -11,7 +11,7 @@ import { AccessTokenService } from './access-token.service';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './auth.service';
 import { RegistrationService } from './registration.service';
-import { ResendEmailService } from './resend-email.service';
+import { EmailDeliveryService } from './email-delivery.service';
 import { BrowserOriginGuard } from './guards/browser-origin.guard';
 import { CookieCsrfGuard } from './guards/cookie-csrf.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -43,7 +43,7 @@ import { AuthCookies } from './utils/auth-cookies';
   providers: [
     AuthService,
     RegistrationService,
-    ResendEmailService,
+    EmailDeliveryService,
     RefreshTokenService,
     AccessTokenService,
     AuthCookies,
