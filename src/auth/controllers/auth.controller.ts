@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 
 import { AuthenticatedIdentity, AuthService } from '../auth.service';
+import { IdentityResolutionService } from '../identity-resolution.service';
 import { RegistrationService } from '../registration.service';
 import { AccessTokenService } from '../access-token.service';
 import { RefreshTokenService } from '../refresh-token.service';
