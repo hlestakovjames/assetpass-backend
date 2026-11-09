@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { IdentityModule } from '../identity/identity.module';
 import { UserProfile } from '../identity/entities/user-profile.entity';
+import { UserConsent } from '../identity/entities/user-consent.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
@@ -45,6 +46,7 @@ import { AuthCookies } from './utils/auth-cookies';
       AuthSession,
       EmailVerification,
       UserProfile,
+      UserConsent,
       Organization,
       OrganizationMembership,
       PlatformAuditLog,
