@@ -30,7 +30,7 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  it('authenticates a verified active user with a valid password', async () => {
+  it('authenticates an approved active user even when email verification is pending', async () => {
     usersRepository.findOne.mockResolvedValue(activeUser as User);
     jest.mocked(argon2.verify).mockResolvedValue(true);
 
@@ -40,7 +40,7 @@ describe('AuthService', () => {
       where: { email: 'owner@example.com' },
       select: {
         id: true, fullName: true, email: true, passwordHash: true,
-        status: true, deactivatedAt: true, emailVerifiedAt: true,
+        status: true, deactivatedAt: true,
       },
     });
     expect(argon2.verify).toHaveBeenCalledWith('argon2id-hash', 'correct-password');
@@ -73,11 +73,11 @@ describe('AuthService', () => {
       .rejects.toThrow('Invalid email or password.');
   });
 
-  it('rejects accounts whose email has not been verified', async () => {
+  it('allows an active approved account whose email has not yet been verified', async () => {
     usersRepository.findOne.mockResolvedValue({ ...activeUser, emailVerifiedAt: null } as User);
     jest.mocked(argon2.verify).mockResolvedValue(true);
     await expect(service.validateCredentials('owner@example.com', 'correct-password'))
-      .rejects.toThrow('Invalid email or password.');
+      .resolves.toMatchObject({ id: activeUser.id, status: UserStatus.ACTIVE });
   });
 
   it('rejects suspended accounts', async () => {

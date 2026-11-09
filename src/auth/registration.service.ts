@@ -102,9 +102,6 @@ export class RegistrationService {
       await verificationRepo.save(verification);
 
       user.emailVerifiedAt = user.emailVerifiedAt ?? new Date();
-      if (user.approvalStatus === UserApprovalStatus.APPROVED && user.status === UserStatus.INACTIVE) {
-        user.status = UserStatus.ACTIVE;
-      }
       await userRepo.save(user);
 
       await verificationRepo.createQueryBuilder()
@@ -114,14 +111,14 @@ export class RegistrationService {
         .execute();
 
       if (user.approvalStatus === UserApprovalStatus.APPROVED) {
-        return { message: 'Your email address has been verified. You can now sign in.' };
+        return { message: 'Your email address has been verified. Your account is approved and you can sign in.' };
       }
 
       if (user.approvalStatus === UserApprovalStatus.REJECTED) {
         return { message: 'Your email address has been verified, but this account was not approved for access.' };
       }
 
-      return { message: 'Your email address has been verified. Your account is now awaiting AssetPass administrator approval before sign-in.' };
+      return { message: 'Your email address has been verified. Your account is awaiting AssetPass administrator approval before sign-in.' };
     });
   }
 
