@@ -6,14 +6,14 @@ describe('AssetsService registration validation', () => {
   const service = new AssetsService({} as DataSource);
   const validate = Reflect.get(service, 'validateInput') as (input: CreateAssetRegistrationInput) => {
     name: string; condition: string; ownershipBasis: string; currencyCode: string | null;
-    evidence: Array<{ evidenceType: string; objectReference: string }>;
+    evidence: Array<{ evidenceType: string; uploadId: string }>;
   };
 
   const validInput = (): CreateAssetRegistrationInput => ({
     name: 'Laptop',
     condition: 'Good',
     ownershipBasis: 'purchase',
-    evidence: [{ evidenceType: 'proof_of_ownership', objectReference: 'private/assets/evidence-123' }],
+    evidence: [{ evidenceType: 'proof_of_ownership', uploadId: '6a582525-5154-4944-8940-000000000001' }],
   });
 
   it('normalizes a valid registration payload', () => {
@@ -27,14 +27,14 @@ describe('AssetsService registration validation', () => {
   it('requires evidence of ownership or a purchase receipt', () => {
     expect(() => validate({
       ...validInput(),
-      evidence: [{ evidenceType: 'asset_photo', objectReference: 'private/assets/photo-1' }],
+      evidence: [{ evidenceType: 'asset_photo', uploadId: '6a582525-5154-4944-8940-000000000001' }],
     })).toThrow(BadRequestException);
   });
 
-  it('rejects public URLs as evidence object references', () => {
+  it('rejects arbitrary object references that are not upload IDs', () => {
     expect(() => validate({
       ...validInput(),
-      evidence: [{ evidenceType: 'proof_of_ownership', objectReference: 'https://example.com/receipt.pdf' }],
+      evidence: [{ evidenceType: 'proof_of_ownership', uploadId: 'https://example.com/receipt.pdf' }],
     })).toThrow(BadRequestException);
   });
 

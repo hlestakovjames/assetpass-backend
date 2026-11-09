@@ -174,6 +174,29 @@ export function validateEnvironment(config: Environment): Environment {
     90,
   );
 
+  const storageKeys = [
+    'ASSET_STORAGE_ENDPOINT',
+    'ASSET_STORAGE_REGION',
+    'ASSET_STORAGE_ACCESS_KEY_ID',
+    'ASSET_STORAGE_SECRET_ACCESS_KEY',
+    'ASSET_EVIDENCE_BUCKET',
+  ];
+  const configuredStorageKeys = storageKeys.filter((key) => String(config[key] ?? '').trim());
+  if (configuredStorageKeys.length > 0 && configuredStorageKeys.length !== storageKeys.length) {
+    throw new Error('Configure all ASSET_STORAGE_* and ASSET_EVIDENCE_BUCKET values together, or leave all of them unset.');
+  }
+  if (configuredStorageKeys.length === storageKeys.length) {
+    let storageEndpoint: URL;
+    try {
+      storageEndpoint = new URL(String(config.ASSET_STORAGE_ENDPOINT));
+    } catch {
+      throw new Error('ASSET_STORAGE_ENDPOINT must be a valid URL.');
+    }
+    if (!['http:', 'https:'].includes(storageEndpoint.protocol) || (nodeEnv === 'production' && storageEndpoint.protocol !== 'https:')) {
+      throw new Error('ASSET_STORAGE_ENDPOINT must use HTTPS in production.');
+    }
+  }
+
   return {
     ...config,
     NODE_ENV: nodeEnv,

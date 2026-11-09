@@ -7,11 +7,12 @@ import { OrganizationMembership, OrganizationMembershipStatus } from '../organiz
 import { AssetParty, AssetPartyType } from './entities/asset-party.entity';
 import { AssetRegistrationApplication, AssetRegistrationStatus } from './entities/asset-registration-application.entity';
 import { AssetRegistrationEvidence, EvidenceVerificationStatus } from './entities/asset-registration-evidence.entity';
+import { AssetEvidenceUpload, AssetEvidenceUploadStatus } from './entities/asset-evidence-upload.entity';
 import { Asset, AssetStatus } from './entities/asset.entity';
 import { AssetOwnership } from './entities/asset-ownership.entity';
 import { AssetRegistrationRecord } from './entities/asset-registration-record.entity';
 
-type EvidenceInput = { evidenceType: string; objectReference: string };
+type EvidenceInput = { evidenceType: string; uploadId: string };
 export type CreateAssetRegistrationInput = {
   name: string;
   description?: string;
@@ -51,11 +52,11 @@ export class AssetsService {
     }
     const evidence = input.evidence.map((item) => {
       const evidenceType = typeof item?.evidenceType === 'string' ? item.evidenceType.trim().toLowerCase() : '';
-      const objectReference = typeof item?.objectReference === 'string' ? item.objectReference.trim() : '';
-      if (!EVIDENCE_TYPES.includes(evidenceType) || !objectReference || objectReference.length > 2000 || /^https?:\/\//i.test(objectReference) || objectReference.includes('..')) {
-        throw new BadRequestException('Evidence must use a valid private object-storage reference and evidence type.');
+      const uploadId = typeof item?.uploadId === 'string' ? item.uploadId.trim() : '';
+      if (!EVIDENCE_TYPES.includes(evidenceType) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uploadId)) {
+        throw new BadRequestException('Evidence must reference a completed private upload and a valid evidence type.');
       }
-      return { evidenceType, objectReference };
+      return { evidenceType, uploadId };
     });
     if (!evidence.some((item) => ['proof_of_ownership', 'purchase_receipt'].includes(item.evidenceType))) {
       throw new BadRequestException('Include proof of ownership or a purchase receipt.');
@@ -106,6 +107,17 @@ export class AssetsService {
   }
 
   private async createApplication(manager: EntityManager, userId: string, party: AssetParty, organizationId: string | null, data: ValidatedAssetRegistration) {
+    const uploadRepo = manager.getRepository(AssetEvidenceUpload);
+    const evidenceUploads = await Promise.all(data.evidence.map(async (item) => {
+      const upload = await uploadRepo.findOne({
+        where: { id: item.uploadId, ownerUserId: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!upload || upload.organizationId !== organizationId || upload.status !== AssetEvidenceUploadStatus.UPLOADED) {
+        throw new BadRequestException('Each evidence item must be uploaded and completed by the submitting user for this registration context.');
+      }
+      return { item, upload };
+    }));
     const applicationRepo = manager.getRepository(AssetRegistrationApplication);
     const applicationReference = `APR-${new Date().getUTCFullYear()}-${cryptoRandomReference()}`;
     const application = await applicationRepo.save(applicationRepo.create({
@@ -131,10 +143,13 @@ export class AssetsService {
       decisionReason: null,
       approvedAssetId: null,
     }));
-    await manager.getRepository(AssetRegistrationEvidence).save(data.evidence.map((item) => ({
-      applicationId: application.id, evidenceType: item.evidenceType, objectReference: item.objectReference,
+    await manager.getRepository(AssetRegistrationEvidence).save(evidenceUploads.map(({ item, upload }) => ({
+      applicationId: application.id, evidenceType: item.evidenceType, objectReference: upload.objectKey,
       uploadedByUserId: userId, verificationStatus: EvidenceVerificationStatus.PENDING,
     })));
+    await Promise.all(evidenceUploads.map(({ upload }) =>
+      uploadRepo.update({ id: upload.id }, { status: AssetEvidenceUploadStatus.ATTACHED, attachedAt: new Date() }),
+    ));
     await manager.getRepository(PlatformAuditLog).save({
       actorUserId: userId, action: 'asset.registration.submitted', entityType: 'asset_registration_application',
       entityId: application.id, outcome: 'success', reason: null,
