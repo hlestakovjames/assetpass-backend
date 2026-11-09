@@ -41,7 +41,6 @@ export class RegistrationService {
     try {
       const user = await this.dataSource.transaction(async (manager) => {
         const userRepo = manager.getRepository(User);
-        const verificationRepo = manager.getRepository(EmailVerification);
         const created = await userRepo.save(userRepo.create({
           fullName,
           email,
