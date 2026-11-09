@@ -103,7 +103,7 @@ describe('RegistrationService account approval gate', () => {
     expect(result.message).toContain('awaiting AssetPass administrator approval');
   });
 
-  it('activates an account only when email verification and internal approval are both complete', async () => {
+  it('keeps an already approved and active account active when email verification is completed', async () => {
     const { service, userRepository, verificationRepository } = makeService();
     const verification = {
       id: 'verification-2',
@@ -112,7 +112,7 @@ describe('RegistrationService account approval gate', () => {
     };
     const user = {
       id: 'user-2',
-      status: UserStatus.INACTIVE,
+      status: UserStatus.ACTIVE,
       approvalStatus: UserApprovalStatus.APPROVED,
       emailVerifiedAt: null,
       deactivatedAt: null,
@@ -138,6 +138,6 @@ describe('RegistrationService account approval gate', () => {
 
     expect(user.status).toBe(UserStatus.ACTIVE);
     expect(user.emailVerifiedAt).toBeInstanceOf(Date);
-    expect(result.message).toContain('You can now sign in');
+    expect(result.message).toContain('approved and you can sign in');
   });
 });
