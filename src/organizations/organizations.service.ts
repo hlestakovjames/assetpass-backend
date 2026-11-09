@@ -1,16 +1,24 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
+import { Permission } from '../access-control/entities/permission.entity';
+import { OrganizationMembershipRole } from '../access-control/entities/organization-membership-role.entity';
+import { OrganizationRole } from '../access-control/entities/organization-role.entity';
+import { OrganizationRolePermission } from '../access-control/entities/organization-role-permission.entity';
+import { User, UserStatus } from '../identity/entities/user.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';
-import { OrganizationRole } from '../access-control/entities/organization-role.entity';
-import { OrganizationMembershipRole } from '../access-control/entities/organization-membership-role.entity';
 
 export interface RegisterOrganizationInput {
   displayName: string; legalName?: string; category: string; registrationNumber?: string;
   contactEmail: string; contactPhone?: string; website?: string; description?: string;
   countryCode?: string; county?: string; city?: string;
+}
+
+export interface InviteOrganizationMemberInput {
+  email: string;
+  roleKey: 'organization_admin' | 'asset_manager' | 'organization_member';
 }
 
 @Injectable()
@@ -19,6 +27,11 @@ export class OrganizationsService {
     private readonly dataSource: DataSource,
     @InjectRepository(Organization) private readonly organizations: Repository<Organization>,
     @InjectRepository(OrganizationMembership) private readonly memberships: Repository<OrganizationMembership>,
+    @InjectRepository(OrganizationRole) private readonly roles: Repository<OrganizationRole>,
+    @InjectRepository(OrganizationMembershipRole) private readonly membershipRoles: Repository<OrganizationMembershipRole>,
+    @InjectRepository(OrganizationRolePermission) private readonly rolePermissions: Repository<OrganizationRolePermission>,
+    @InjectRepository(Permission) private readonly permissions: Repository<Permission>,
+    @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
 
   async register(userId: string, input: RegisterOrganizationInput): Promise<Organization> {
@@ -69,6 +82,197 @@ export class OrganizationsService {
         'organization.status AS status',
       ])
       .orderBy('membership.created_at', 'DESC').getRawMany();
+  }
+
+  async getWorkspace(userId: string, organizationId: string) {
+    await this.assertPermission(userId, organizationId, 'organization.assets.read');
+    const membership = await this.memberships.findOneBy({ organizationId, userId, status: OrganizationMembershipStatus.ACTIVE });
+    const organization = await this.organizations.findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
+    if (!membership || !organization) throw new NotFoundException('Active organization workspace not found.');
+    const assignments = await this.membershipRoles.find({ where: { membershipId: membership.id } });
+    const roles = assignments.length ? await this.roles.find({ where: { id: In(assignments.map((item) => item.roleId)) } }) : [];
+    const grants = roles.length ? await this.rolePermissions.find({ where: { roleId: In(roles.map((item) => item.id)) } }) : [];
+    const permissionRecords = grants.length ? await this.permissions.find({ where: { id: In(grants.map((item) => item.permissionId)) } }) : [];
+    return {
+      organization,
+      membership: { id: membership.id, status: membership.status, joinedAt: membership.joinedAt },
+      roles: roles.map((role) => ({ key: role.key, name: role.name })),
+      permissions: permissionRecords.map((permission) => permission.key),
+    };
+  }
+
+  async listMembers(actorUserId: string, organizationId: string) {
+    await this.assertPermission(actorUserId, organizationId, 'organization.members.read');
+    const memberships = await this.memberships.find({
+      where: { organizationId },
+      order: { createdAt: 'ASC' },
+    });
+    if (!memberships.length) return [];
+    const users = await this.users.find({
+      where: { id: In(memberships.map((membership) => membership.userId)) },
+      select: { id: true, fullName: true, email: true, status: true },
+    });
+    const assignments = await this.membershipRoles.find({
+      where: { membershipId: In(memberships.map((membership) => membership.id)) },
+    });
+    const roles = assignments.length ? await this.roles.find({ where: { id: In(assignments.map((item) => item.roleId)) } }) : [];
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const roleMap = new Map(roles.map((role) => [role.id, role]));
+    return memberships.map((membership) => ({
+      id: membership.id,
+      status: membership.status,
+      joinedAt: membership.joinedAt,
+      createdAt: membership.createdAt,
+      user: userMap.get(membership.userId) ?? null,
+      roles: assignments.filter((assignment) => assignment.membershipId === membership.id)
+        .map((assignment) => roleMap.get(assignment.roleId))
+        .filter((role): role is OrganizationRole => Boolean(role))
+        .map((role) => ({ key: role.key, name: role.name })),
+    }));
+  }
+
+  async inviteMember(actorUserId: string, organizationId: string, input: InviteOrganizationMemberInput) {
+    await this.assertPermission(actorUserId, organizationId, 'organization.members.manage');
+    if (!input || typeof input.email !== 'string' || !['organization_admin', 'asset_manager', 'organization_member'].includes(input.roleKey)) {
+      throw new BadRequestException('Provide a valid user email and organization role.');
+    }
+    const email = input.email.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Enter a valid email address.');
+    const user = await this.users.findOne({ where: { email, status: UserStatus.ACTIVE }, select: { id: true, fullName: true, email: true, status: true } });
+    if (!user) throw new NotFoundException('No active AssetPass account exists for this email. The person must register before they can be invited.');
+    const organization = await this.organizations.findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
+    if (!organization) throw new NotFoundException('Active organization not found.');
+    const existing = await this.memberships.findOneBy({ organizationId, userId: user.id });
+    if (existing) throw new ConflictException('This user already has an organization membership or invitation.');
+    const role = await this.roles.findOne({ where: [
+      { organizationId: IsNull(), key: input.roleKey, isActive: true },
+      { organizationId, key: input.roleKey, isActive: true },
+    ] });
+    if (!role) throw new BadRequestException('The selected organization role is not available.');
+    return this.dataSource.transaction(async (manager) => {
+      const membership = await manager.getRepository(OrganizationMembership).save(
+        manager.getRepository(OrganizationMembership).create({
+          organizationId, userId: user.id, status: OrganizationMembershipStatus.PENDING,
+          invitedByUserId: actorUserId, joinedAt: null,
+        }),
+      );
+      await manager.getRepository(OrganizationMembershipRole).save(
+        manager.getRepository(OrganizationMembershipRole).create({
+          membershipId: membership.id, roleId: role.id, assignedByUserId: actorUserId,
+        }),
+      );
+      await manager.getRepository(PlatformAuditLog).save({
+        actorUserId, action: 'organization.member.invited', entityType: 'organization_membership',
+        entityId: membership.id, outcome: 'success', reason: null,
+        metadata: { organizationId, invitedUserId: user.id, roleKey: role.key },
+      });
+      return { id: membership.id, status: membership.status, email: user.email, fullName: user.fullName, role: role.name };
+    });
+  }
+
+  async acceptInvitation(userId: string, organizationId: string, membershipId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const membershipRepo = manager.getRepository(OrganizationMembership);
+      const membership = await membershipRepo.findOne({ where: { id: membershipId, organizationId, userId } });
+      if (!membership) throw new NotFoundException('Organization invitation not found.');
+      if (membership.status !== OrganizationMembershipStatus.PENDING) throw new ConflictException('This invitation is no longer pending.');
+      const organization = await manager.getRepository(Organization).findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
+      if (!organization) throw new ConflictException('The organization is not currently active.');
+      membership.status = OrganizationMembershipStatus.ACTIVE;
+      membership.joinedAt = new Date();
+      await membershipRepo.save(membership);
+      await manager.getRepository(PlatformAuditLog).save({
+        actorUserId: userId, action: 'organization.invitation.accepted', entityType: 'organization_membership',
+        entityId: membership.id, outcome: 'success', reason: null, metadata: { organizationId },
+      });
+      return { membershipId: membership.id, organizationId, status: membership.status, joinedAt: membership.joinedAt };
+    });
+  }
+
+  async changeMemberStatus(actorUserId: string, organizationId: string, membershipId: string, status: OrganizationMembershipStatus) {
+    await this.assertPermission(actorUserId, organizationId, 'organization.members.manage');
+    if (![OrganizationMembershipStatus.SUSPENDED, OrganizationMembershipStatus.REMOVED].includes(status)) {
+      throw new BadRequestException('Only suspension or removal is supported from member management.');
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const membershipRepo = manager.getRepository(OrganizationMembership);
+      const membership = await membershipRepo.findOneBy({ id: membershipId, organizationId });
+      if (!membership) throw new NotFoundException('Organization member not found.');
+      if (membership.userId === actorUserId) throw new BadRequestException('You cannot suspend or remove your own membership.');
+      if (membership.status === OrganizationMembershipStatus.REMOVED || membership.status === OrganizationMembershipStatus.REJECTED) {
+        throw new ConflictException('This membership is no longer active.');
+      }
+      const assignments = await manager.getRepository(OrganizationMembershipRole).find({ where: { membershipId } });
+      const assignedRoles = assignments.length ? await manager.getRepository(OrganizationRole).find({ where: { id: In(assignments.map((item) => item.roleId)) } }) : [];
+      if (assignedRoles.some((role) => role.key === 'organization_owner')) {
+        const otherOwners = await manager.createQueryBuilder()
+          .select('COUNT(DISTINCT membership.id)', 'count')
+          .from(OrganizationMembership, 'membership')
+          .innerJoin(OrganizationMembershipRole, 'assignment', 'assignment.membership_id = membership.id')
+          .innerJoin(OrganizationRole, 'role', 'role.id = assignment.role_id')
+          .where('membership.organization_id = :organizationId', { organizationId })
+          .andWhere('membership.status = :active', { active: OrganizationMembershipStatus.ACTIVE })
+          .andWhere('role.key = :owner', { owner: 'organization_owner' })
+          .andWhere('membership.id != :membershipId', { membershipId })
+          .getRawOne<{ count: string }>();
+        if (Number(otherOwners?.count ?? 0) === 0) throw new ConflictException('The last Organization Owner cannot be suspended or removed.');
+      }
+      const previousStatus = membership.status;
+      membership.status = status;
+      await membershipRepo.save(membership);
+      await manager.getRepository(PlatformAuditLog).save({
+        actorUserId, action: status === OrganizationMembershipStatus.SUSPENDED ? 'organization.member.suspended' : 'organization.member.removed',
+        entityType: 'organization_membership', entityId: membership.id, outcome: 'success', reason: null,
+        metadata: { organizationId, targetUserId: membership.userId, previousStatus, newStatus: status },
+      });
+      return { membershipId, status };
+    });
+  }
+
+  async changeMemberRole(actorUserId: string, organizationId: string, membershipId: string, roleKey: string) {
+    await this.assertPermission(actorUserId, organizationId, 'organization.roles.manage');
+    if (!['organization_admin', 'asset_manager', 'organization_member'].includes(roleKey)) {
+      throw new BadRequestException('The selected role cannot be assigned through member management.');
+    }
+    const membership = await this.memberships.findOneBy({ id: membershipId, organizationId, status: OrganizationMembershipStatus.ACTIVE });
+    if (!membership) throw new NotFoundException('Active organization member not found.');
+    if (membership.userId === actorUserId && roleKey !== 'organization_admin') {
+      throw new BadRequestException('You cannot remove your own organization administration role here.');
+    }
+    const role = await this.roles.findOne({ where: [
+      { organizationId: IsNull(), key: roleKey, isActive: true },
+      { organizationId, key: roleKey, isActive: true },
+    ] });
+    if (!role) throw new BadRequestException('The selected organization role is not available.');
+    return this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(OrganizationMembershipRole).delete({ membershipId });
+      await manager.getRepository(OrganizationMembershipRole).save(
+        manager.getRepository(OrganizationMembershipRole).create({ membershipId, roleId: role.id, assignedByUserId: actorUserId }),
+      );
+      await manager.getRepository(PlatformAuditLog).save({
+        actorUserId, action: 'organization.member.role.changed', entityType: 'organization_membership',
+        entityId: membershipId, outcome: 'success', reason: null,
+        metadata: { organizationId, targetUserId: membership.userId, roleKey },
+      });
+      return { membershipId, role: { key: role.key, name: role.name } };
+    });
+  }
+
+  private async assertPermission(userId: string, organizationId: string, permissionKey: string) {
+    const organization = await this.organizations.findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
+    if (!organization) throw new NotFoundException('Active organization workspace not found.');
+    const rows = await this.memberships.createQueryBuilder('membership')
+      .innerJoin(OrganizationMembershipRole, 'assignment', 'assignment.membership_id = membership.id')
+      .innerJoin(OrganizationRole, 'role', 'role.id = assignment.role_id AND role.is_active = true')
+      .innerJoin(OrganizationRolePermission, 'rolePermission', 'rolePermission.role_id = role.id')
+      .innerJoin(Permission, 'permission', 'permission.id = rolePermission.permission_id')
+      .where('membership.organization_id = :organizationId', { organizationId })
+      .andWhere('membership.user_id = :userId', { userId })
+      .andWhere('membership.status = :status', { status: OrganizationMembershipStatus.ACTIVE })
+      .andWhere('permission.key = :permissionKey', { permissionKey })
+      .andWhere('permission.scope = :scope', { scope: 'organization' })
+      .getCount();
+    if (!rows) throw new ForbiddenException('You do not have permission to perform this organization action.');
   }
 
   async list(status?: OrganizationStatus) {
