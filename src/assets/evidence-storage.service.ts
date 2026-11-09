@@ -45,6 +45,7 @@ export class EvidenceStorageService {
 
   async completeUpload(userId: string, uploadId: string, organizationId: string | null = null) {
     const upload = await this.getOwnedUpload(userId, uploadId, organizationId);
+    if (organizationId) await this.assertOrganizationPermission(userId, organizationId, 'organization.assets.manage');
     if (upload.status === AssetEvidenceUploadStatus.UPLOADED || upload.status === AssetEvidenceUploadStatus.ATTACHED) {
       return { uploadId: upload.id, status: upload.status };
     }
@@ -81,13 +82,15 @@ export class EvidenceStorageService {
   async createDownloadUrl(userId: string, uploadId: string, organizationId: string | null = null) {
     const upload = await this.dataSource.getRepository(AssetEvidenceUpload).findOneBy({ id: uploadId });
     if (!upload || upload.status !== AssetEvidenceUploadStatus.ATTACHED) throw new NotFoundException('Evidence file not found.');
-    if (upload.ownerUserId !== userId) {
+    if (upload.organizationId) {
       if (!organizationId || upload.organizationId !== organizationId) throw new NotFoundException('Evidence file not found.');
       try {
         await this.assertOrganizationPermission(userId, organizationId, 'organization.assets.review');
       } catch {
         throw new NotFoundException('Evidence file not found.');
       }
+    } else if (upload.ownerUserId !== userId) {
+      throw new NotFoundException('Evidence file not found.');
     }
     return { downloadUrl: this.presign(this.storageConfig(), 'GET', upload.objectKey, 300), expiresInSeconds: 300 };
   }
