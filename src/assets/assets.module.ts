@@ -6,6 +6,7 @@ import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import { AssetParty } from './entities/asset-party.entity';
+import { ExternalAssetParty } from './entities/external-asset-party.entity';
 import { AssetRegistrationApplication } from './entities/asset-registration-application.entity';
 import { AssetRegistrationEvidence } from './entities/asset-registration-evidence.entity';
 import { Asset } from './entities/asset.entity';
@@ -18,7 +19,7 @@ import { AssetsService } from './assets.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      AssetParty, AssetRegistrationApplication, AssetRegistrationEvidence,
+      AssetParty, ExternalAssetParty, AssetRegistrationApplication, AssetRegistrationEvidence,
       Asset, AssetOwnership, AssetRegistrationRecord, Organization,
       OrganizationMembership, PlatformAuditLog,
     ]),
