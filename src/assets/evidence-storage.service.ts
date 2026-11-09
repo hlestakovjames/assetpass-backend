@@ -22,10 +22,7 @@ export class EvidenceStorageService {
       throw new BadRequestException('Evidence must be a PDF, JPEG, PNG or WebP file no larger than 15 MB.');
     }
     if (organizationId) {
-      const membership = await this.dataSource.getRepository(OrganizationMembership).findOneBy({
-        organizationId, userId, status: OrganizationMembershipStatus.ACTIVE,
-      });
-      if (!membership) throw new ForbiddenException('An active organization membership is required.');
+      await this.assertOrganizationPermission(userId, organizationId, 'organization.assets.manage');
     }
     const id = randomUUID();
     const objectKey = `evidence/${userId}/${id}`;
@@ -78,10 +75,11 @@ export class EvidenceStorageService {
     if (!upload || upload.status !== AssetEvidenceUploadStatus.ATTACHED) throw new NotFoundException('Evidence file not found.');
     if (upload.ownerUserId !== userId) {
       if (!organizationId || upload.organizationId !== organizationId) throw new NotFoundException('Evidence file not found.');
-      const membership = await this.dataSource.getRepository(OrganizationMembership).findOneBy({
-        organizationId, userId, status: OrganizationMembershipStatus.ACTIVE,
-      });
-      if (!membership) throw new NotFoundException('Evidence file not found.');
+      try {
+        await this.assertOrganizationPermission(userId, organizationId, 'organization.assets.review');
+      } catch {
+        throw new NotFoundException('Evidence file not found.');
+      }
     }
     return { downloadUrl: this.presign(this.storageConfig(), 'GET', upload.objectKey, 300), expiresInSeconds: 300 };
   }
@@ -90,6 +88,23 @@ export class EvidenceStorageService {
     const upload = await this.dataSource.getRepository(AssetEvidenceUpload).findOneBy({ id: uploadId, ownerUserId: userId });
     if (!upload || upload.organizationId !== organizationId) throw new NotFoundException('Upload reservation not found.');
     return upload;
+  }
+
+  private async assertOrganizationPermission(userId: string, organizationId: string, permissionKey: string) {
+    const membership = await this.dataSource.getRepository(OrganizationMembership).findOneBy({
+      organizationId, userId, status: OrganizationMembershipStatus.ACTIVE,
+    });
+    if (!membership) throw new ForbiddenException('An active organization membership is required.');
+    const rows = await this.dataSource.query(`
+      SELECT 1
+      FROM organization_membership_roles mr
+      JOIN organization_roles r ON r.id = mr.role_id AND r.is_active = true
+      JOIN organization_role_permissions rp ON rp.role_id = r.id
+      JOIN permissions p ON p.id = rp.permission_id
+      WHERE mr.membership_id = $1 AND p.key = $2
+      LIMIT 1
+    `, [membership.id, permissionKey]);
+    if (!rows.length) throw new ForbiddenException('You do not have permission to access organization evidence.');
   }
 
   private storageConfig() {
