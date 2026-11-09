@@ -3,7 +3,7 @@ import * as argon2 from 'argon2';
 import { Repository } from 'typeorm';
 
 import { AuthService } from './auth.service';
-import { User, UserStatus } from '../identity/entities/user.entity';
+import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 
 jest.mock('argon2', () => ({ verify: jest.fn() }));
 
@@ -17,6 +17,7 @@ describe('AuthService', () => {
     email: 'owner@example.com',
     passwordHash: 'argon2id-hash',
     status: UserStatus.ACTIVE,
+    approvalStatus: UserApprovalStatus.APPROVED,
     emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     deactivatedAt: null,
   };
@@ -40,7 +41,7 @@ describe('AuthService', () => {
       where: { email: 'owner@example.com' },
       select: {
         id: true, fullName: true, email: true, passwordHash: true,
-        status: true, deactivatedAt: true,
+        status: true, approvalStatus: true, deactivatedAt: true,
       },
     });
     expect(argon2.verify).toHaveBeenCalledWith('argon2id-hash', 'correct-password');
@@ -78,6 +79,13 @@ describe('AuthService', () => {
     jest.mocked(argon2.verify).mockResolvedValue(true);
     await expect(service.validateCredentials('owner@example.com', 'correct-password'))
       .resolves.toMatchObject({ id: activeUser.id, status: UserStatus.ACTIVE });
+  });
+
+  it('rejects accounts that have not been approved, even if active', async () => {
+    usersRepository.findOne.mockResolvedValue({ ...activeUser, approvalStatus: UserApprovalStatus.PENDING_REVIEW } as User);
+    jest.mocked(argon2.verify).mockResolvedValue(true);
+    await expect(service.validateCredentials('owner@example.com', 'correct-password'))
+      .rejects.toThrow('Invalid email or password.');
   });
 
   it('rejects suspended accounts', async () => {
