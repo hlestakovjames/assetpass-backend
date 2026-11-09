@@ -64,6 +64,14 @@ export class EvidenceStorageService {
     if (actualSize !== upload.sizeBytes || actualType !== upload.contentType) {
       throw new BadRequestException('The uploaded file size or content type does not match the upload reservation.');
     }
+    const sampleResponse = await fetch(this.presign(storage, 'GET', upload.objectKey, 60), {
+      headers: { Range: 'bytes=0-15' },
+    });
+    if (!sampleResponse.ok) throw new BadRequestException('The uploaded evidence file could not be inspected.');
+    const sample = Buffer.from(await sampleResponse.arrayBuffer());
+    if (!this.matchesFileSignature(upload.contentType, sample)) {
+      throw new BadRequestException('The uploaded file contents do not match the declared evidence file type.');
+    }
     upload.status = AssetEvidenceUploadStatus.UPLOADED;
     upload.uploadedAt = new Date();
     await this.dataSource.getRepository(AssetEvidenceUpload).save(upload);
@@ -88,6 +96,14 @@ export class EvidenceStorageService {
     const upload = await this.dataSource.getRepository(AssetEvidenceUpload).findOneBy({ id: uploadId, ownerUserId: userId });
     if (!upload || upload.organizationId !== organizationId) throw new NotFoundException('Upload reservation not found.');
     return upload;
+  }
+
+  private matchesFileSignature(contentType: string, sample: Buffer) {
+    if (contentType === 'application/pdf') return sample.subarray(0, 5).toString('ascii') === '%PDF-';
+    if (contentType === 'image/jpeg') return sample[0] === 0xff && sample[1] === 0xd8 && sample[2] === 0xff;
+    if (contentType === 'image/png') return sample.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (contentType === 'image/webp') return sample.subarray(0, 4).toString('ascii') === 'RIFF' && sample.subarray(8, 12).toString('ascii') === 'WEBP';
+    return false;
   }
 
   private async assertOrganizationPermission(userId: string, organizationId: string, permissionKey: string) {
