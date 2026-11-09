@@ -8,7 +8,6 @@ import { AssetParty, AssetPartyType } from './entities/asset-party.entity';
 import { AssetRegistrationApplication, AssetRegistrationStatus } from './entities/asset-registration-application.entity';
 import { AssetRegistrationEvidence, EvidenceVerificationStatus } from './entities/asset-registration-evidence.entity';
 import { AssetEvidenceUpload, AssetEvidenceUploadStatus } from './entities/asset-evidence-upload.entity';
-import { EvidenceStorageService } from './evidence-storage.service';
 import { Asset, AssetStatus } from './entities/asset.entity';
 import { AssetOwnership } from './entities/asset-ownership.entity';
 import { AssetRegistrationRecord } from './entities/asset-registration-record.entity';
@@ -38,7 +37,7 @@ const EVIDENCE_TYPES = ['proof_of_ownership', 'purchase_receipt', 'asset_photo',
 
 @Injectable()
 export class AssetsService {
-  constructor(private readonly dataSource: DataSource, private readonly evidenceStorage: EvidenceStorageService) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   private validateInput(input: CreateAssetRegistrationInput) {
     if (!input || typeof input !== 'object') throw new BadRequestException('Asset details are required.');
