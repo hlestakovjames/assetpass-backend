@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';
@@ -22,9 +22,12 @@ export class OrganizationsService {
   ) {}
 
   async register(userId: string, input: RegisterOrganizationInput): Promise<Organization> {
-    const displayName = input.displayName?.trim();
-    const category = input.category?.trim();
-    const contactEmail = input.contactEmail?.trim().toLowerCase();
+    if (!input || typeof input !== 'object' || typeof input.displayName !== 'string' || typeof input.category !== 'string' || typeof input.contactEmail !== 'string') {
+      throw new BadRequestException('A valid organization name, category and contact email are required.');
+    }
+    const displayName = input.displayName.trim();
+    const category = input.category.trim();
+    const contactEmail = input.contactEmail.trim().toLowerCase();
     if (!displayName || displayName.length > 200 || !category || category.length > 80 || !contactEmail || contactEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
       throw new BadRequestException('A valid organization name, category and contact email are required.');
     }
@@ -91,7 +94,7 @@ export class OrganizationsService {
           membership.status = OrganizationMembershipStatus.ACTIVE;
           membership.joinedAt = new Date();
           await memberRepo.save(membership);
-          const ownerRole = await manager.getRepository(OrganizationRole).findOne({ where: { organizationId: null, key: 'organization_owner', isActive: true } });
+          const ownerRole = await manager.getRepository(OrganizationRole).findOne({ where: { organizationId: IsNull(), key: 'organization_owner', isActive: true } });
           if (!ownerRole) throw new Error('System organization owner role is missing.');
           await manager.query('INSERT INTO organization_membership_roles (membership_id, role_id, assigned_by_user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [membership.id, ownerRole.id, actorUserId]);
         }
