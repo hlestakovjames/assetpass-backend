@@ -5,6 +5,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
 import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 import { UserProfile } from '../identity/entities/user-profile.entity';
+import { UserConsent } from '../identity/entities/user-consent.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { Organization, OrganizationStatus } from '../organizations/entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from '../organizations/entities/organization-membership.entity';
@@ -34,6 +35,7 @@ type CommonRegistration = {
   postalAddress?: string;
   occupation?: string;
   preferredContactMethod?: 'email' | 'phone';
+  termsAccepted?: boolean;
 };
 
 type OrganizationRegistration = CommonRegistration & {
@@ -89,6 +91,7 @@ export class RegistrationService {
       throw new BadRequestException('Use a password containing at least 12 characters.');
     }
     if (!phoneNumber || !isPhone(phoneNumber)) throw new BadRequestException('Enter a valid mobile phone number.');
+    if (input.termsAccepted !== true) throw new BadRequestException('You must accept the terms of service and privacy notice to create an account.');
     if (input.alternativePhone && !isPhone(normalizePhone(input.alternativePhone))) {
       throw new BadRequestException('Enter a valid alternative phone number.');
     }
@@ -131,6 +134,11 @@ export class RegistrationService {
           occupation: cleanOptional(input.occupation, 160),
           preferredContactMethod: input.preferredContactMethod === 'phone' ? 'phone' : 'email',
         }));
+
+        await manager.getRepository(UserConsent).save([
+          { userId: created.id, consentType: 'terms_of_service', version: '2026-11-09', acceptedAt: now, source: 'self_service_registration' },
+          { userId: created.id, consentType: 'privacy_notice', version: '2026-11-09', acceptedAt: now, source: 'self_service_registration' },
+        ]);
 
         if (organization) {
           const organizationRepo = manager.getRepository(Organization);
@@ -202,6 +210,9 @@ export class RegistrationService {
             approvalStatus: created.approvalStatus,
             emailVerifiedInternally: Boolean(created.emailVerifiedAt),
             emailVerificationEmailSent: false,
+            termsAccepted: true,
+            privacyNoticeAccepted: true,
+            consentVersion: '2026-11-09',
           },
         });
       });
