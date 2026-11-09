@@ -105,6 +105,9 @@ describe('RegistrationService early-launch registration', () => {
       contactEmail: 'info@example.org',
       contactPhone: '+254700000000',
       physicalAddress: 'Kisumu, Kenya',
+      position: 'Director',
+      registrationRelationship: 'Director',
+      authorityConfirmation: 'YES',
     });
 
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
@@ -135,7 +138,10 @@ describe('RegistrationService early-launch registration', () => {
       contactEmail: 'info@example.org',
       contactPhone: '',
       physicalAddress: '',
-    })).rejects.toThrow('Organization name, type, official email, official phone and physical address are required.');
+      position: 'Director',
+      registrationRelationship: 'Director',
+      authorityConfirmation: 'YES',
+    })).rejects.toThrow('Organization name, type, official email, official phone, physical address, contact position and registration authority confirmation are required.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
