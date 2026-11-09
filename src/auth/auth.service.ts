@@ -46,7 +46,7 @@ export class AuthService {
       !user ||
       !passwordMatches ||
       user.status !== UserStatus.ACTIVE ||
-      user.deactivatedAt !== null ||
+      user.deactivatedAt !== null
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
