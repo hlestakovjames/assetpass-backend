@@ -1,12 +1,12 @@
 import { RegistrationService } from './registration.service';
-import { EmailVerification } from './email-verification.entity';
+import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 
 jest.mock('argon2', () => ({
   hash: jest.fn().mockResolvedValue('hashed-password'),
 }));
 
-describe('RegistrationService account approval gate', () => {
+describe('RegistrationService early-launch access policy', () => {
   const makeService = () => {
     const userRepository = {
       create: jest.fn((value) => value),
@@ -19,15 +19,16 @@ describe('RegistrationService account approval gate', () => {
       findOne: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
+    const auditRepository = { save: jest.fn(async (value) => value) };
     const manager = {
-      getRepository: jest.fn((entity) =>
-        entity === User ? userRepository : verificationRepository,
-      ),
+      getRepository: jest.fn((entity) => {
+        if (entity === User) return userRepository;
+        if (entity === PlatformAuditLog) return auditRepository;
+        return verificationRepository;
+      }),
     };
     const dataSource = {
-      transaction: jest.fn(async (callback: (value: typeof manager) => unknown) =>
-        callback(manager),
-      ),
+      transaction: jest.fn(async (callback: (value: typeof manager) => unknown) => callback(manager)),
     };
     const email = { sendVerificationEmail: jest.fn().mockResolvedValue(undefined) };
 
@@ -40,78 +41,50 @@ describe('RegistrationService account approval gate', () => {
       ),
       userRepository,
       verificationRepository,
-      dataSource,
+      auditRepository,
       email,
-      manager,
     };
   };
 
-  it('creates every new registration inactive and pending internal review', async () => {
-    const { service, userRepository, email } = makeService();
+  it('creates an active, approved and internally verified account without sending email', async () => {
+    const { service, userRepository, verificationRepository, auditRepository, email } = makeService();
 
-    await service.register({
+    const result = await service.register({
       fullName: 'New AssetPass User',
       email: 'new.user@example.com',
       password: 'a-secure-password-123',
     });
 
-    expect(userRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: UserStatus.INACTIVE,
-        approvalStatus: UserApprovalStatus.PENDING_REVIEW,
-        emailVerifiedAt: null,
+    expect(userRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+      status: UserStatus.ACTIVE,
+      approvalStatus: UserApprovalStatus.APPROVED,
+      emailVerifiedAt: expect.any(Date),
+      approvalReviewedByUserId: null,
+      approvalReviewedAt: expect.any(Date),
+      approvalNote: expect.stringContaining('early-launch'),
+    }));
+    expect(verificationRepository.save).not.toHaveBeenCalled();
+    expect(email.sendVerificationEmail).not.toHaveBeenCalled();
+    expect(auditRepository.save).toHaveBeenCalledWith(expect.objectContaining({
+      actorUserId: null,
+      action: 'auth.user.registered',
+      entityType: 'user',
+      outcome: 'success',
+      metadata: expect.objectContaining({
+        accountStatus: UserStatus.ACTIVE,
+        approvalStatus: UserApprovalStatus.APPROVED,
+        emailVerifiedInternally: true,
+        emailVerificationEmailSent: false,
       }),
-    );
-    expect(email.sendVerificationEmail).toHaveBeenCalledTimes(1);
+    }));
+    expect(result.message).toContain('you can sign in now');
   });
 
-  it('does not activate an email-verified account while internal approval is pending', async () => {
+  it('retains optional verification for legacy unverified accounts', async () => {
     const { service, userRepository, verificationRepository } = makeService();
-    const verification = {
-      id: 'verification-1',
-      userId: 'user-1',
-      usedAt: null,
-    };
+    const verification = { id: 'verification-1', userId: 'user-1', usedAt: null };
     const user = {
       id: 'user-1',
-      status: UserStatus.INACTIVE,
-      approvalStatus: UserApprovalStatus.PENDING_REVIEW,
-      emailVerifiedAt: null,
-      deactivatedAt: null,
-    };
-    const readQuery = {
-      setLock: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockResolvedValue(verification),
-    };
-    const updateQuery = {
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ affected: 1 }),
-    };
-    verificationRepository.createQueryBuilder
-      .mockReturnValueOnce(readQuery)
-      .mockReturnValueOnce(updateQuery);
-    userRepository.findOne.mockResolvedValue(user);
-
-    const result = await service.verify('a'.repeat(43));
-
-    expect(user.emailVerifiedAt).toBeInstanceOf(Date);
-    expect(user.status).toBe(UserStatus.INACTIVE);
-    expect(result.message).toContain('awaiting AssetPass administrator approval');
-  });
-
-  it('keeps an already approved and active account active when email verification is completed', async () => {
-    const { service, userRepository, verificationRepository } = makeService();
-    const verification = {
-      id: 'verification-2',
-      userId: 'user-2',
-      usedAt: null,
-    };
-    const user = {
-      id: 'user-2',
       status: UserStatus.ACTIVE,
       approvalStatus: UserApprovalStatus.APPROVED,
       emailVerifiedAt: null,
@@ -129,9 +102,7 @@ describe('RegistrationService account approval gate', () => {
       where: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
-    verificationRepository.createQueryBuilder
-      .mockReturnValueOnce(readQuery)
-      .mockReturnValueOnce(updateQuery);
+    verificationRepository.createQueryBuilder.mockReturnValueOnce(readQuery).mockReturnValueOnce(updateQuery);
     userRepository.findOne.mockResolvedValue(user);
 
     const result = await service.verify('b'.repeat(43));
