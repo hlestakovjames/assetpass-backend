@@ -110,10 +110,10 @@ export class AssetsService {
     const uploadRepo = manager.getRepository(AssetEvidenceUpload);
     const evidenceUploads = await Promise.all(data.evidence.map(async (item) => {
       const upload = await uploadRepo.findOne({
-        where: { id: item.uploadId, ownerUserId: userId, organizationId },
+        where: { id: item.uploadId, ownerUserId: userId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!upload || upload.status !== AssetEvidenceUploadStatus.UPLOADED) {
+      if (!upload || upload.organizationId !== organizationId || upload.status !== AssetEvidenceUploadStatus.UPLOADED) {
         throw new BadRequestException('Each evidence item must be uploaded and completed by the submitting user for this registration context.');
       }
       return { item, upload };
