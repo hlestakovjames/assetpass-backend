@@ -9,8 +9,8 @@ export enum AssetPartyType {
 
 @Entity('asset_parties')
 @Check('CHK_asset_parties_exactly_one_subject', `(
-  (party_type = 'individual' AND user_id IS NOT NULL AND organization_id IS NULL AND is_assetpass_platform_party = false)
-  OR (party_type = 'organization' AND user_id IS NULL AND organization_id IS NOT NULL AND is_assetpass_platform_party = false)
+  (party_type = 'individual' AND user_id IS NOT NULL AND organization_id IS NULL AND external_asset_party_id IS NULL AND is_assetpass_platform_party = false)
+  OR (party_type = 'organization' AND user_id IS NULL AND organization_id IS NOT NULL AND external_asset_party_id IS NULL AND is_assetpass_platform_party = false)
   OR (party_type = 'platform' AND user_id IS NULL AND organization_id IS NULL AND is_assetpass_platform_party = true)
 )`)
 @Index('UQ_asset_parties_user', ['userId'], { unique: true, where: '"user_id" IS NOT NULL' })
