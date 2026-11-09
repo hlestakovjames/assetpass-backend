@@ -9,7 +9,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
 import { User, UserStatus } from '../identity/entities/user.entity';
 import { EmailVerification } from './email-verification.entity';
-import { ResendEmailService } from './resend-email.service';
+import { EmailDeliveryService } from './email-delivery.service';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 const GENERIC_MESSAGE = 'If the address can be registered, a verification email will be sent shortly.';
@@ -21,7 +21,7 @@ export class RegistrationService {
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(EmailVerification) private readonly verifications: Repository<EmailVerification>,
     private readonly dataSource: DataSource,
-    private readonly email: ResendEmailService,
+    private readonly email: EmailDeliveryService,
   ) {}
 
   async register(input: { fullName: string; email: string; password: string }) {
