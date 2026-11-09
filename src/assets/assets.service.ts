@@ -65,7 +65,7 @@ export class AssetsService {
       throw new BadRequestException('Enter a valid non-negative acquisition cost.');
     }
     const date = typeof input.acquisitionDate === 'string' ? input.acquisitionDate.trim() : input.acquisitionDate == null ? '' : 'invalid';
-    if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))) {
+    if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)) {
       throw new BadRequestException('Enter the acquisition date in YYYY-MM-DD format.');
     }
     const currency = typeof input.currencyCode === 'string' ? input.currencyCode.trim().toUpperCase() : input.currencyCode == null ? '' : 'INVALID';
