@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
+import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AuthenticatedIdentity } from '../auth/auth.service';
-import { OrganizationsService, RegisterOrganizationInput } from './organizations.service';
+import { OrganizationsService } from './organizations.service';
+import type { RegisterOrganizationInput } from './organizations.service';
 
 type AuthenticatedRequest = Request & { user: AuthenticatedIdentity };
 
