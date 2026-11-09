@@ -318,8 +318,8 @@ function validateOrganization(input: OrganizationRegistration) {
   if (!displayName || !organizationType || !contactEmail || !isEmail(contactEmail) || !contactPhone || !isPhone(contactPhone) || !physicalAddress || !primaryContactPosition || !registrationContactRelationship || !authorityConfirmed) {
     throw new BadRequestException('Organization name, type, official email, official phone, physical address, contact position and registration authority confirmation are required.');
   }
-  if (registrationDate && !/^\d{4}-\d{2}-\d{2}$/.test(registrationDate)) {
-    throw new BadRequestException('Enter the registration date in YYYY-MM-DD format.');
+  if (registrationDate && (!/^\d{4}-\d{2}-\d{2}$/.test(registrationDate) || Number.isNaN(Date.parse(registrationDate)) || new Date(registrationDate).toISOString().slice(0, 10) !== registrationDate)) {
+    throw new BadRequestException('Enter a valid registration date in YYYY-MM-DD format.');
   }
   if (registrationNumber && !registrationDate && input.registrationDate) {
     throw new BadRequestException('Enter a valid registration date.');
