@@ -8,11 +8,13 @@ import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { DataSource, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
+import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { EmailVerification } from './email-verification.entity';
 import { EmailDeliveryService } from './email-delivery.service';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
-const GENERIC_MESSAGE = 'If the address can be registered, a verification email will be sent shortly.';
+const GENERIC_MESSAGE = 'Registration received. If this is a new account, it is ready for sign-in.';
+const REGISTRATION_SUCCESS_MESSAGE = 'Registration successful. Your account is active and you can sign in now.';
 const logger = new Logger('RegistrationService');
 
 @Injectable()
@@ -36,9 +38,6 @@ export class RegistrationService {
     }
 
     const passwordHash = await argon2.hash(password);
-    const token = randomBytes(32).toString('base64url');
-    const tokenHash = hashToken(token);
-
     try {
       const user = await this.dataSource.transaction(async (manager) => {
         const userRepo = manager.getRepository(User);
@@ -47,31 +46,35 @@ export class RegistrationService {
           fullName,
           email,
           passwordHash,
-          status: UserStatus.INACTIVE,
-          approvalStatus: UserApprovalStatus.PENDING_REVIEW,
+          status: UserStatus.ACTIVE,
+          approvalStatus: UserApprovalStatus.APPROVED,
           approvalReviewedByUserId: null,
-          approvalReviewedAt: null,
-          approvalNote: null,
-          emailVerifiedAt: null,
+          approvalReviewedAt: new Date(),
+          approvalNote: 'Automatically approved under the early-launch registration access policy.',
+          emailVerifiedAt: new Date(),
           isFoundingAssetManager: false,
           lastLoginAt: null,
           deactivatedAt: null,
         }));
-        await verificationRepo.save(verificationRepo.create({
-          userId: created.id,
-          tokenHash,
-          expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
-          usedAt: null,
-        }));
+        await manager.getRepository(PlatformAuditLog).save({
+          actorUserId: null,
+          action: 'auth.user.registered',
+          entityType: 'user',
+          entityId: created.id,
+          outcome: 'success',
+          reason: 'Automatic activation under the early-launch registration access policy.',
+          metadata: {
+            registrationMethod: 'self_service',
+            accountStatus: created.status,
+            approvalStatus: created.approvalStatus,
+            emailVerifiedInternally: Boolean(created.emailVerifiedAt),
+            emailVerificationEmailSent: false,
+          },
+        });
         return created;
       });
 
-      try {
-        await this.email.sendVerificationEmail(user.email, user.fullName, token);
-      } catch {
-        logger.error('Verification email delivery failed.');
-      }
-      return { message: GENERIC_MESSAGE };
+      return { message: REGISTRATION_SUCCESS_MESSAGE };
     } catch (error) {
       if (isUniqueViolation(error)) return { message: GENERIC_MESSAGE };
       throw error;
