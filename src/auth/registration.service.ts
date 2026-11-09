@@ -53,6 +53,9 @@ type OrganizationRegistration = CommonRegistration & {
   description?: string;
   postalCode?: string;
   taxIdentifier?: string;
+  position?: string;
+  registrationRelationship?: string;
+  authorityConfirmation?: string;
 };
 
 @Injectable()
@@ -136,6 +139,9 @@ export class RegistrationService {
             legalName: organization.legalName,
             category: organization.industrySector || organization.organizationType,
             organizationType: organization.organizationType,
+            primaryContactPosition: organization.primaryContactPosition,
+            registrationContactRelationship: organization.registrationContactRelationship,
+            authorityConfirmedAt: organization.authorityConfirmedAt,
             industrySector: organization.industrySector,
             legalStructure: organization.legalStructure,
             registrationNumber: organization.registrationNumber,
@@ -304,10 +310,13 @@ function validateOrganization(input: OrganizationRegistration) {
   const contactEmail = normalizeEmail(input.contactEmail);
   const contactPhone = normalizePhone(input.contactPhone);
   const physicalAddress = cleanRequired(input.physicalAddress, 2000);
+  const primaryContactPosition = cleanRequired(input.position, 160);
+  const registrationContactRelationship = cleanRequired(input.registrationRelationship, 120);
+  const authorityConfirmed = typeof input.authorityConfirmation === 'string' && input.authorityConfirmation.trim().toLowerCase() === 'yes';
   const registrationNumber = cleanOptional(input.registrationNumber, 100);
   const registrationDate = cleanOptional(input.registrationDate, 10);
-  if (!displayName || !organizationType || !contactEmail || !isEmail(contactEmail) || !contactPhone || !isPhone(contactPhone) || !physicalAddress) {
-    throw new BadRequestException('Organization name, type, official email, official phone and physical address are required.');
+  if (!displayName || !organizationType || !contactEmail || !isEmail(contactEmail) || !contactPhone || !isPhone(contactPhone) || !physicalAddress || !primaryContactPosition || !registrationContactRelationship || !authorityConfirmed) {
+    throw new BadRequestException('Organization name, type, official email, official phone, physical address, contact position and registration authority confirmation are required.');
   }
   if (registrationDate && !/^\d{4}-\d{2}-\d{2}$/.test(registrationDate)) {
     throw new BadRequestException('Enter the registration date in YYYY-MM-DD format.');
@@ -319,6 +328,9 @@ function validateOrganization(input: OrganizationRegistration) {
   return {
     displayName,
     organizationType,
+    primaryContactPosition,
+    registrationContactRelationship,
+    authorityConfirmedAt: new Date(),
     legalName: cleanOptional(input.legalName, 250),
     industrySector: cleanOptional(input.industrySector, 120),
     legalStructure: cleanOptional(input.legalStructure, 80),
