@@ -95,6 +95,21 @@ describe('RegistrationService early-launch registration', () => {
     expect(result.message).toContain('you can sign in now');
   });
 
+
+  it('requires explicit terms and privacy notice acceptance', async () => {
+    const { service, dataSource } = makeService();
+    await expect(service.register({
+      accountType: 'individual',
+      firstName: 'New',
+      lastName: 'User',
+      email: 'new.user@example.com',
+      password: 'a-secure-password-123',
+      phoneNumber: '+254712345678',
+      termsAccepted: false,
+    })).rejects.toThrow('You must accept the terms of service and privacy notice to create an account.');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
   it('creates an organization and pending initial membership in the same transaction', async () => {
     const { service, repositories, dataSource, email } = makeService();
     const organizationRepo = repositories.get(Organization)!;
