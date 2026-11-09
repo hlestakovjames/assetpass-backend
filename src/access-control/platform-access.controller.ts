@@ -1,8 +1,8 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
-import { AuthenticatedIdentity } from '../auth/auth.service';
+import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformRole, PlatformRoleName } from '../platform-governance/entities/platform-role.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
