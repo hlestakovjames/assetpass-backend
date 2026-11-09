@@ -10,6 +10,7 @@ import { AccessTokenService } from './access-token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { AuthCookies } from './utils/auth-cookies';
 import { RegistrationService } from './registration.service';
+import { IdentityResolutionService } from './identity-resolution.service';
 import { UserStatus } from '../identity/entities/user.entity';
 
 describe('AuthController', () => {
@@ -29,6 +30,8 @@ describe('AuthController', () => {
     revoke: jest.Mock;
     revokeAllForUser: jest.Mock;
   };
+
+  let identityResolution: { resolve: jest.Mock };
 
   let authCookies: {
     refreshCookieName: string;
@@ -53,6 +56,23 @@ describe('AuthController', () => {
     email: 'test@example.com',
     status: UserStatus.ACTIVE,
   } as AuthenticatedIdentity;
+
+  const resolvedIdentity = {
+    ...identity,
+    profile: null,
+    platformRoles: ['Platform Owner'],
+    platformPermissions: ['platform.users.view'],
+    organizations: [],
+    availableWorkspaces: [
+      { type: 'platform', label: 'Platform administration', href: '/platform/overview' },
+      { type: 'individual', label: 'Individual workspace', href: '/individual/overview' },
+    ],
+    defaultWorkspace: {
+      type: 'platform',
+      label: 'Platform administration',
+      href: '/platform/overview',
+    },
+  };
 
   const csrfToken = 'a'.repeat(43);
 
@@ -101,6 +121,8 @@ describe('AuthController', () => {
       revokeAllForUser: jest.fn().mockResolvedValue(2),
     };
 
+    identityResolution = { resolve: jest.fn().mockResolvedValue(resolvedIdentity) };
+
     authCookies = {
       refreshCookieName: 'assetpass_refresh',
       csrfCookieName: 'assetpass_csrf',
@@ -129,6 +151,7 @@ describe('AuthController', () => {
       authCookies as unknown as AuthCookies,
       {} as never,
       {} as unknown as RegistrationService,
+      identityResolution as unknown as IdentityResolutionService,
     );
   });
 
@@ -240,12 +263,7 @@ describe('AuthController', () => {
         accessToken: 'access-token',
         tokenType: 'Bearer',
         expiresIn: 900,
-        user: {
-          id: identity.id,
-          fullName: identity.fullName,
-          email: identity.email,
-          status: identity.status,
-        },
+        user: resolvedIdentity,
       });
 
       expect(result).not.toHaveProperty('refreshToken');
@@ -424,20 +442,16 @@ describe('AuthController', () => {
   });
 
   describe('getCurrentUser', () => {
-    it('returns the authenticated identity without sensitive fields', () => {
-      const result = controller.getCurrentUser(
+    it('returns the resolved authenticated identity without sensitive fields', async () => {
+      const result = await controller.getCurrentUser(
         makeRequest({
           user: identity,
         }),
         response as unknown as Response,
       );
 
-      expect(result).toEqual({
-        id: identity.id,
-        fullName: identity.fullName,
-        email: identity.email,
-        status: identity.status,
-      });
+      expect(identityResolution.resolve).toHaveBeenCalledWith(identity);
+      expect(result).toEqual(resolvedIdentity);
 
       expect(response.setHeader).toHaveBeenCalledWith(
         'Cache-Control',

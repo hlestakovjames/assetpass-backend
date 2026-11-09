@@ -15,6 +15,7 @@ import { EmailVerification } from './email-verification.entity';
 import { AccessTokenService } from './access-token.service';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './auth.service';
+import { IdentityResolutionService } from './identity-resolution.service';
 import { RegistrationService } from './registration.service';
 import { EmailDeliveryService } from './email-delivery.service';
 import { BrowserOriginGuard } from './guards/browser-origin.guard';
@@ -55,6 +56,7 @@ import { AuthCookies } from './utils/auth-cookies';
   controllers: [AuthController],
   providers: [
     AuthService,
+    IdentityResolutionService,
     RegistrationService,
     EmailDeliveryService,
     RefreshTokenService,

@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 
 import { AuthenticatedIdentity, AuthService } from '../auth.service';
+import { IdentityResolutionService } from '../identity-resolution.service';
 import { RegistrationService } from '../registration.service';
 import { AccessTokenService } from '../access-token.service';
 import { RefreshTokenService } from '../refresh-token.service';
@@ -38,6 +39,7 @@ export class AuthController {
     private readonly authCookies: AuthCookies,
     private readonly config: ConfigService,
     private readonly registrationService: RegistrationService,
+    private readonly identityResolution: IdentityResolutionService,
   ) {}
 
   private getSessionMetadata(request: Request) {
@@ -111,6 +113,7 @@ export class AuthController {
     }
 
     const user = await this.authService.validateCredentials(body.email, body.password);
+    const identity = await this.identityResolution.resolve(user);
     const session = await this.refreshTokenService.createSession(
       user.id,
       this.getSessionMetadata(request),
@@ -127,12 +130,7 @@ export class AuthController {
       accessToken,
       tokenType: 'Bearer',
       expiresIn: this.authCookies.getAccessTokenTtlSeconds(),
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        status: user.status,
-      },
+      user: identity,
     };
   }
 
@@ -196,11 +194,6 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-    return {
-      id: request.user.id,
-      fullName: request.user.fullName,
-      email: request.user.email,
-      status: request.user.status,
-    };
+    return this.identityResolution.resolve(request.user);
   }
 }
