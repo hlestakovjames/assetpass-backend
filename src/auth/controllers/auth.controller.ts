@@ -38,6 +38,7 @@ export class AuthController {
     private readonly authCookies: AuthCookies,
     private readonly config: ConfigService,
     private readonly registrationService: RegistrationService,
+    private readonly identityResolution: IdentityResolutionService,
   ) {}
 
   private getSessionMetadata(request: Request) {
@@ -123,16 +124,13 @@ export class AuthController {
     this.authCookies.setAuthCookies(response, session.refreshToken, csrfToken);
     response.setHeader('Cache-Control', 'no-store');
 
+    const identity = await this.identityResolution.resolve(user);
+
     return {
       accessToken,
       tokenType: 'Bearer',
       expiresIn: this.authCookies.getAccessTokenTtlSeconds(),
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        status: user.status,
-      },
+      user: identity,
     };
   }
 
@@ -196,11 +194,6 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-    return {
-      id: request.user.id,
-      fullName: request.user.fullName,
-      email: request.user.email,
-      status: request.user.status,
-    };
+    return this.identityResolution.resolve(request.user);
   }
 }
