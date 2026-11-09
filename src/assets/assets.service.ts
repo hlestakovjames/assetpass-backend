@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource, IsNull } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
+import { randomBytes } from 'node:crypto';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { Organization, OrganizationStatus } from '../organizations/entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from '../organizations/entities/organization-membership.entity';
 import { AssetParty, AssetPartyType } from './entities/asset-party.entity';
 import { AssetRegistrationApplication, AssetRegistrationStatus } from './entities/asset-registration-application.entity';
-import { AssetRegistrationEvidence } from './entities/asset-registration-evidence.entity';
+import { AssetRegistrationEvidence, EvidenceVerificationStatus } from './entities/asset-registration-evidence.entity';
 import { Asset, AssetStatus } from './entities/asset.entity';
 import { AssetOwnership } from './entities/asset-ownership.entity';
 import { AssetRegistrationRecord } from './entities/asset-registration-record.entity';
@@ -26,6 +27,8 @@ export type CreateAssetRegistrationInput = {
 };
 
 export type ReviewAssetRegistrationInput = { decision: 'approve' | 'reject'; reason: string };
+
+type ValidatedAssetRegistration = { name: string; condition: string; ownershipBasis: string; evidence: EvidenceInput[]; description: string | null; serialNumber: string | null; manufacturer: string | null; model: string | null; acquisitionDate: string | null; acquisitionCost: string | null; currencyCode: string | null };
 
 const OWNERSHIP_BASES = ['purchase', 'gift', 'inheritance', 'self_created', 'other'];
 const CONDITIONS = ['new', 'excellent', 'good', 'fair', 'poor', 'unknown'];
@@ -102,7 +105,7 @@ export class AssetsService {
     });
   }
 
-  private async createApplication(manager: any, userId: string, party: AssetParty, organizationId: string | null, data: ReturnType<AssetsService['validateInput']>) {
+  private async createApplication(manager: EntityManager, userId: string, party: AssetParty, organizationId: string | null, data: ValidatedAssetRegistration) {
     const applicationRepo = manager.getRepository(AssetRegistrationApplication);
     const applicationReference = `APR-${new Date().getUTCFullYear()}-${cryptoRandomReference()}`;
     const application = await applicationRepo.save(applicationRepo.create({
@@ -130,7 +133,7 @@ export class AssetsService {
     }));
     await manager.getRepository(AssetRegistrationEvidence).save(data.evidence.map((item) => ({
       applicationId: application.id, evidenceType: item.evidenceType, objectReference: item.objectReference,
-      uploadedByUserId: userId, verificationStatus: 'pending',
+      uploadedByUserId: userId, verificationStatus: EvidenceVerificationStatus.PENDING,
     })));
     await manager.getRepository(PlatformAuditLog).save({
       actorUserId: userId, action: 'asset.registration.submitted', entityType: 'asset_registration_application',
@@ -194,7 +197,7 @@ export class AssetsService {
       if (!evidence.length) throw new BadRequestException('The application has no supporting evidence.');
       const now = new Date();
       if (input.decision === 'reject') {
-        await evidenceRepo.update({ applicationId }, { verificationStatus: 'rejected', verifiedByUserId: actorUserId, verifiedAt: now, verificationNotes: input.reason.trim() });
+        await evidenceRepo.update({ applicationId }, { verificationStatus: EvidenceVerificationStatus.REJECTED, verifiedByUserId: actorUserId, verifiedAt: now, verificationNotes: input.reason.trim() });
         application.status = AssetRegistrationStatus.REJECTED;
         application.reviewedByUserId = actorUserId;
         application.reviewedAt = now;
@@ -208,7 +211,7 @@ export class AssetsService {
       }
 
       if (!application.proposedOwnerPartyId) throw new BadRequestException('A legal owner must be validated before approval.');
-      await evidenceRepo.update({ applicationId }, { verificationStatus: 'verified', verifiedByUserId: actorUserId, verifiedAt: now, verificationNotes: input.reason.trim() });
+      await evidenceRepo.update({ applicationId }, { verificationStatus: EvidenceVerificationStatus.VERIFIED, verifiedByUserId: actorUserId, verifiedAt: now, verificationNotes: input.reason.trim() });
       const sequence = await manager.query(`SELECT nextval('assetpass_asset_id_seq') AS value`);
       const serial = String(sequence[0].value).padStart(8, '0');
       const assetpassId = `AP-${now.getUTCFullYear()}-${serial}`;
@@ -255,7 +258,7 @@ export class AssetsService {
     });
   }
 
-  private async assertOrganizationPermission(manager: any, userId: string, organizationId: string, permissionKey: string) {
+  private async assertOrganizationPermission(manager: EntityManager, userId: string, organizationId: string, permissionKey: string) {
     const membership = await manager.getRepository(OrganizationMembership).findOneBy({
       organizationId, userId, status: OrganizationMembershipStatus.ACTIVE,
     });
@@ -284,5 +287,5 @@ export class AssetsService {
 }
 
 function cryptoRandomReference() {
-  return require('node:crypto').randomBytes(6).toString('hex').toUpperCase();
+  return randomBytes(6).toString('hex').toUpperCase();
 }
