@@ -166,6 +166,7 @@ describe('RegistrationService early-launch registration', () => {
       contactPhone: '',
       physicalAddress: '',
       termsAccepted: true,
+      privacyNoticeAcknowledged: true,
       position: 'Director',
       registrationRelationship: 'Director',
       authorityConfirmation: 'YES',
