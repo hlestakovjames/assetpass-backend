@@ -60,6 +60,7 @@ describe('RegistrationService early-launch registration', () => {
       phoneNumber: '+254712345678',
       countryCode: 'KE',
       termsAccepted: true,
+      privacyNoticeAcknowledged: true,
     });
 
     expect(userRepo.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -105,8 +106,9 @@ describe('RegistrationService early-launch registration', () => {
       email: 'new.user@example.com',
       password: 'a-secure-password-123',
       phoneNumber: '+254712345678',
-      termsAccepted: false,
-    })).rejects.toThrow('You must accept the terms of service and privacy notice to create an account.');
+      termsAccepted: true,
+      privacyNoticeAcknowledged: false,
+    })).rejects.toThrow('You must accept the terms of service and acknowledge the privacy notice to create an account.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -129,6 +131,7 @@ describe('RegistrationService early-launch registration', () => {
       contactPhone: '+254700000000',
       physicalAddress: 'Kisumu, Kenya',
       termsAccepted: true,
+      privacyNoticeAcknowledged: true,
       position: 'Director',
       registrationRelationship: 'Director',
       authorityConfirmation: 'YES',
