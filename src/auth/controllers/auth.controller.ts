@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -14,10 +15,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 
-import {
-  AuthenticatedIdentity,
-  AuthService,
-} from '../auth.service';
+import { AuthenticatedIdentity, AuthService } from '../auth.service';
+import { RegistrationService } from '../registration.service';
 import { AccessTokenService } from '../access-token.service';
 import { RefreshTokenService } from '../refresh-token.service';
 import { LoginDto } from '../dto/login.dto';
@@ -39,6 +38,7 @@ export class AuthController {
     private readonly refreshTokenService: RefreshTokenService,
     private readonly authCookies: AuthCookies,
     private readonly config: ConfigService,
+    private readonly registrationService: RegistrationService,
   ) {}
 
   private getSessionMetadata(request: Request) {
@@ -49,16 +49,10 @@ export class AuthController {
   }
 
   private getRefreshToken(request: AuthenticatedRequest): string {
-    const token = request.cookies?.[
-      this.authCookies.refreshCookieName
-    ];
-
+    const token = request.cookies?.[this.authCookies.refreshCookieName];
     if (typeof token !== 'string' || token.length === 0) {
-      throw new UnauthorizedException(
-        'Invalid or expired refresh token.',
-      );
+      throw new UnauthorizedException('Invalid or expired refresh token.');
     }
-
     return token;
   }
 
@@ -68,17 +62,33 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    let csrfToken =
-      request.cookies?.[this.authCookies.csrfCookieName];
-
+    let csrfToken = request.cookies?.[this.authCookies.csrfCookieName];
     if (!this.authCookies.isValidCsrfToken(csrfToken)) {
       csrfToken = this.authCookies.createCsrfToken();
       this.authCookies.setCsrfCookie(response, csrfToken);
     }
-
     response.setHeader('Cache-Control', 'no-store');
-
     return { csrfToken };
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(BrowserOriginGuard)
+  register(@Body() body: { fullName: string; email: string; password: string }) {
+    return this.registrationService.register(body);
+  }
+
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  verifyEmail(@Query('token') token: string) {
+    return this.registrationService.verify(token);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(BrowserOriginGuard)
+  resendVerification(@Body() body: { email: string }) {
+    return this.registrationService.resend(body?.email);
   }
 
   @Post('login')
@@ -100,33 +110,17 @@ export class AuthController {
       throw new BadRequestException('Invalid login request.');
     }
 
-    const user = await this.authService.validateCredentials(
-      body.email,
-      body.password,
+    const user = await this.authService.validateCredentials(body.email, body.password);
+    const session = await this.refreshTokenService.createSession(
+      user.id,
+      this.getSessionMetadata(request),
     );
-
-    const metadata = this.getSessionMetadata(request);
-
-    const session =
-      await this.refreshTokenService.createSession(
-        user.id,
-        metadata,
-      );
-
-    const accessToken =
-      await this.accessTokenService.issueAccessToken(
-        user.id,
-        session.sessionId,
-      );
-
+    const accessToken = await this.accessTokenService.issueAccessToken(
+      user.id,
+      session.sessionId,
+    );
     const csrfToken = this.authCookies.createCsrfToken();
-
-    this.authCookies.setAuthCookies(
-      response,
-      session.refreshToken,
-      csrfToken,
-    );
-
+    this.authCookies.setAuthCookies(response, session.refreshToken, csrfToken);
     response.setHeader('Cache-Control', 'no-store');
 
     return {
@@ -150,32 +144,22 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const refreshToken = this.getRefreshToken(request);
-
     try {
       const rotated = await this.refreshTokenService.rotate(
         refreshToken,
         this.getSessionMetadata(request),
       );
-
-      const accessToken =
-        await this.accessTokenService.issueAccessToken(
-          rotated.user.id,
-          rotated.sessionId,
-        );
-
+      const accessToken = await this.accessTokenService.issueAccessToken(
+        rotated.user.id,
+        rotated.sessionId,
+      );
       this.authCookies.setAuthCookies(
         response,
         rotated.refreshToken,
         request.cookies?.[this.authCookies.csrfCookieName] ?? '',
       );
-
       response.setHeader('Cache-Control', 'no-store');
-
-      return {
-        accessToken,
-        tokenType: 'Bearer',
-        expiresIn: this.authCookies.getAccessTokenTtlSeconds(),
-      };
+      return { accessToken, tokenType: 'Bearer', expiresIn: this.authCookies.getAccessTokenTtlSeconds() };
     } catch (error) {
       this.authCookies.clearAuthCookies(response);
       throw error;
@@ -189,13 +173,8 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    const refreshToken =
-      request.cookies?.[this.authCookies.refreshCookieName];
-
-    if (typeof refreshToken === 'string') {
-      await this.refreshTokenService.revoke(refreshToken);
-    }
-
+    const refreshToken = request.cookies?.[this.authCookies.refreshCookieName];
+    if (typeof refreshToken === 'string') await this.refreshTokenService.revoke(refreshToken);
     this.authCookies.clearAuthCookies(response);
   }
 
@@ -206,10 +185,7 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    await this.refreshTokenService.revokeAllForUser(
-      request.user.id,
-    );
-
+    await this.refreshTokenService.revokeAllForUser(request.user.id);
     this.authCookies.clearAuthCookies(response);
   }
 
@@ -220,7 +196,6 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-
     return {
       id: request.user.id,
       fullName: request.user.fullName,
