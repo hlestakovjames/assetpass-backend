@@ -83,8 +83,8 @@ export class RegistrationService {
     const fullName = [parts.firstName, parts.middleName, parts.lastName].filter(Boolean).join(' ').trim();
     const phoneNumber = normalizePhone(input.phoneNumber);
 
-    if (!parts.firstName || !parts.lastName || parts.firstName.length > 100 || (parts.middleName?.length ?? 0) > 100 || parts.lastName.length > 100) {
-      throw new BadRequestException('Enter your first and last name. Middle name is optional.');
+    if (!parts.firstName || !parts.lastName || parts.firstName.length > 100 || (parts.middleName?.length ?? 0) > 100 || parts.lastName.length > 100 || fullName.length > 200) {
+      throw new BadRequestException('Enter valid first and last names. Each name must be at most 100 characters and the full name at most 200 characters.');
     }
     if (!email || email.length > 320 || !isEmail(email)) throw new BadRequestException('Enter a valid email address.');
     if (typeof password !== 'string' || password.length < 12 || password.length > 1024) {
