@@ -143,19 +143,31 @@ export class OrganizationsService {
     const organization = await this.organizations.findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
     if (!organization) throw new NotFoundException('Active organization not found.');
     const existing = await this.memberships.findOneBy({ organizationId, userId: user.id });
-    if (existing) throw new ConflictException('This user already has an organization membership or invitation.');
+    if (existing && existing.status !== OrganizationMembershipStatus.REMOVED) {
+      throw new ConflictException('This user already has an organization membership or invitation.');
+    }
     const role = await this.roles.findOne({ where: [
       { organizationId: IsNull(), key: input.roleKey, isActive: true },
       { organizationId, key: input.roleKey, isActive: true },
     ] });
     if (!role) throw new BadRequestException('The selected organization role is not available.');
     return this.dataSource.transaction(async (manager) => {
-      const membership = await manager.getRepository(OrganizationMembership).save(
-        manager.getRepository(OrganizationMembership).create({
+      const membershipRepo = manager.getRepository(OrganizationMembership);
+      let membership: OrganizationMembership;
+      if (existing) {
+        membership = await membershipRepo.save({
+          ...existing,
+          status: OrganizationMembershipStatus.PENDING,
+          invitedByUserId: actorUserId,
+          joinedAt: null,
+        });
+        await manager.getRepository(OrganizationMembershipRole).delete({ membershipId: membership.id });
+      } else {
+        membership = await membershipRepo.save(membershipRepo.create({
           organizationId, userId: user.id, status: OrganizationMembershipStatus.PENDING,
           invitedByUserId: actorUserId, joinedAt: null,
-        }),
-      );
+        }));
+      }
       await manager.getRepository(OrganizationMembershipRole).save(
         manager.getRepository(OrganizationMembershipRole).create({
           membershipId: membership.id, roleId: role.id, assignedByUserId: actorUserId,
@@ -191,8 +203,8 @@ export class OrganizationsService {
 
   async changeMemberStatus(actorUserId: string, organizationId: string, membershipId: string, status: OrganizationMembershipStatus) {
     await this.assertPermission(actorUserId, organizationId, 'organization.members.manage');
-    if (![OrganizationMembershipStatus.SUSPENDED, OrganizationMembershipStatus.REMOVED].includes(status)) {
-      throw new BadRequestException('Only suspension or removal is supported from member management.');
+    if (![OrganizationMembershipStatus.ACTIVE, OrganizationMembershipStatus.SUSPENDED, OrganizationMembershipStatus.REMOVED].includes(status)) {
+      throw new BadRequestException('Only reactivation, suspension or removal is supported from member management.');
     }
     return this.dataSource.transaction(async (manager) => {
       const membershipRepo = manager.getRepository(OrganizationMembership);
@@ -200,7 +212,10 @@ export class OrganizationsService {
       if (!membership) throw new NotFoundException('Organization member not found.');
       if (membership.userId === actorUserId) throw new BadRequestException('You cannot suspend or remove your own membership.');
       if (membership.status === OrganizationMembershipStatus.REMOVED || membership.status === OrganizationMembershipStatus.REJECTED) {
-        throw new ConflictException('This membership is no longer active.');
+        throw new ConflictException('This membership is no longer eligible for status changes.');
+      }
+      if (status === OrganizationMembershipStatus.ACTIVE && membership.status !== OrganizationMembershipStatus.SUSPENDED) {
+        throw new ConflictException('Only a suspended membership can be reactivated.');
       }
       const assignments = await manager.getRepository(OrganizationMembershipRole).find({ where: { membershipId } });
       const assignedRoles = assignments.length ? await manager.getRepository(OrganizationRole).find({ where: { id: In(assignments.map((item) => item.roleId)) } }) : [];
@@ -221,7 +236,8 @@ export class OrganizationsService {
       membership.status = status;
       await membershipRepo.save(membership);
       await manager.getRepository(PlatformAuditLog).save({
-        actorUserId, action: status === OrganizationMembershipStatus.SUSPENDED ? 'organization.member.suspended' : 'organization.member.removed',
+        actorUserId,
+        action: status === OrganizationMembershipStatus.SUSPENDED ? 'organization.member.suspended' : status === OrganizationMembershipStatus.REMOVED ? 'organization.member.removed' : 'organization.member.reactivated',
         entityType: 'organization_membership', entityId: membership.id, outcome: 'success', reason: null,
         metadata: { organizationId, targetUserId: membership.userId, previousStatus, newStatus: status },
       });
@@ -236,8 +252,23 @@ export class OrganizationsService {
     }
     const membership = await this.memberships.findOneBy({ id: membershipId, organizationId, status: OrganizationMembershipStatus.ACTIVE });
     if (!membership) throw new NotFoundException('Active organization member not found.');
-    if (membership.userId === actorUserId && roleKey !== 'organization_admin') {
-      throw new BadRequestException('You cannot remove your own organization administration role here.');
+    if (membership.userId === actorUserId) {
+      throw new BadRequestException('You cannot change your own organization role.');
+    }
+    const currentAssignments = await this.membershipRoles.find({ where: { membershipId } });
+    const currentRoles = currentAssignments.length
+      ? await this.roles.find({ where: { id: In(currentAssignments.map((item) => item.roleId)) } })
+      : [];
+    if (currentRoles.some((item) => item.key === 'organization_owner')) {
+      const otherOwners = await this.memberships.createQueryBuilder('membership')
+        .innerJoin(OrganizationMembershipRole, 'assignment', 'assignment.membership_id = membership.id')
+        .innerJoin(OrganizationRole, 'ownerRole', 'ownerRole.id = assignment.role_id')
+        .where('membership.organization_id = :organizationId', { organizationId })
+        .andWhere('membership.status = :active', { active: OrganizationMembershipStatus.ACTIVE })
+        .andWhere('ownerRole.key = :owner', { owner: 'organization_owner' })
+        .andWhere('membership.id != :membershipId', { membershipId })
+        .getCount();
+      if (otherOwners === 0) throw new ConflictException('The last Organization Owner cannot be demoted.');
     }
     const role = await this.roles.findOne({ where: [
       { organizationId: IsNull(), key: roleKey, isActive: true },
