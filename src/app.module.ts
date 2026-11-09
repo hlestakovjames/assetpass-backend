@@ -10,6 +10,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { AccessControlModule } from './access-control/access-control.module';
+import { AssetsModule } from './assets/assets.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -42,6 +43,7 @@ import { AppService } from './app.service';
     AuthModule,
     AccessControlModule,
     OrganizationsModule,
+    AssetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
