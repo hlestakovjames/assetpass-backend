@@ -106,7 +106,7 @@ export class PlatformUsersController {
       user.approvalReviewedByUserId = request.user.id;
       user.approvalReviewedAt = new Date();
       user.approvalNote = note || null;
-      user.status = body.decision === 'approve' && user.emailVerifiedAt
+      user.status = body.decision === 'approve'
         ? UserStatus.ACTIVE
         : UserStatus.INACTIVE;
 
@@ -122,6 +122,7 @@ export class PlatformUsersController {
           previousApprovalStatus: previousStatus,
           approvalStatus: user.approvalStatus,
           emailVerified: Boolean(user.emailVerifiedAt),
+          emailVerificationRequiredForLogin: false,
           accountStatus: user.status,
         },
       });
