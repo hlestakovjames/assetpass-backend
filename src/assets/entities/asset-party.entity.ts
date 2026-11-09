@@ -4,6 +4,7 @@ export enum AssetPartyType {
   INDIVIDUAL = 'individual',
   ORGANIZATION = 'organization',
   PLATFORM = 'platform',
+  EXTERNAL = 'external',
 }
 
 @Entity('asset_parties')
@@ -20,6 +21,7 @@ export class AssetParty {
   @Column({ name: 'party_type', type: 'enum', enum: AssetPartyType, enumName: 'asset_party_type' }) partyType: AssetPartyType;
   @Column({ name: 'user_id', type: 'uuid', nullable: true }) userId: string | null;
   @Column({ name: 'organization_id', type: 'uuid', nullable: true }) organizationId: string | null;
+  @Column({ name: 'external_asset_party_id', type: 'uuid', nullable: true }) externalAssetPartyId: string | null;
   @Column({ name: 'is_assetpass_platform_party', type: 'boolean', default: false }) isAssetpassPlatformParty: boolean;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }
