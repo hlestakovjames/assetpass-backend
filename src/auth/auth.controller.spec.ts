@@ -9,6 +9,7 @@ import { AuthService, AuthenticatedIdentity } from './auth.service';
 import { AccessTokenService } from './access-token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { AuthCookies } from './utils/auth-cookies';
+import { RegistrationService } from './registration.service';
 import { UserStatus } from '../identity/entities/user.entity';
 
 describe('AuthController', () => {
@@ -127,6 +128,7 @@ describe('AuthController', () => {
       refreshTokenService as unknown as RefreshTokenService,
       authCookies as unknown as AuthCookies,
       {} as never,
+      {} as unknown as RegistrationService,
     );
   });
 
