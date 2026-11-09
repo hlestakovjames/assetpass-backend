@@ -35,23 +35,20 @@ export class AuthService {
         passwordHash: true,
         status: true,
         deactivatedAt: true,
+        emailVerifiedAt: true,
       },
     });
 
-    // Always perform an Argon2 verification, including when
-    // the supplied email does not belong to an existing account.
+    // Always perform an Argon2 verification, including for unknown emails.
     const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
-
-    const passwordMatches = await argon2.verify(
-      passwordHash,
-      password,
-    );
+    const passwordMatches = await argon2.verify(passwordHash, password);
 
     if (
       !user ||
       !passwordMatches ||
       user.status !== UserStatus.ACTIVE ||
-      user.deactivatedAt !== null
+      user.deactivatedAt !== null ||
+      !user.emailVerifiedAt
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }

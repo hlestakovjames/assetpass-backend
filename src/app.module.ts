@@ -8,29 +8,23 @@ import { IdentityModule } from './identity/identity.module';
 import { PlatformGovernanceModule } from './platform-governance/platform-governance.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { AccessControlModule } from './access-control/access-control.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateEnvironment,
-    }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres' as const,
         url: config.getOrThrow<string>('DATABASE_URL'),
-        ssl: config.get<boolean>('DB_SSL')
-          ? {
-              rejectUnauthorized: config.get<boolean>(
-                'DB_SSL_REJECT_UNAUTHORIZED',
-                true,
-              ),
-            }
-          : false,
+        ssl: config.get<boolean>('DB_SSL') ? {
+          rejectUnauthorized: config.get<boolean>('DB_SSL_REJECT_UNAUTHORIZED', true),
+        } : false,
         uuidExtension: 'pgcrypto',
         autoLoadEntities: true,
         synchronize: false,
@@ -38,10 +32,7 @@ import { AppService } from './app.service';
         migrationsTableName: 'assetpass_migrations',
         retryAttempts: 5,
         retryDelay: 3000,
-        logging:
-          config.get<string>('NODE_ENV') === 'development'
-            ? ['error', 'warn']
-            : ['error'],
+        logging: config.get<string>('NODE_ENV') === 'development' ? ['error', 'warn'] : ['error'],
       }),
     }),
     HealthModule,
@@ -49,6 +40,8 @@ import { AppService } from './app.service';
     PlatformGovernanceModule,
     AuditModule,
     AuthModule,
+    AccessControlModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

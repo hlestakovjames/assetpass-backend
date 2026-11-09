@@ -38,6 +38,9 @@ export class User {
   })
   status: UserStatus;
 
+  @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
+  emailVerifiedAt: Date | null;
+
   @Column({
     name: 'is_founding_asset_manager',
     type: 'boolean',
