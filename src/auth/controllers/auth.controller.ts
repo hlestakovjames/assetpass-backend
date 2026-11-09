@@ -113,6 +113,7 @@ export class AuthController {
     }
 
     const user = await this.authService.validateCredentials(body.email, body.password);
+    const identity = await this.identityResolution.resolve(user);
     const session = await this.refreshTokenService.createSession(
       user.id,
       this.getSessionMetadata(request),
@@ -124,8 +125,6 @@ export class AuthController {
     const csrfToken = this.authCookies.createCsrfToken();
     this.authCookies.setAuthCookies(response, session.refreshToken, csrfToken);
     response.setHeader('Cache-Control', 'no-store');
-
-    const identity = await this.identityResolution.resolve(user);
 
     return {
       accessToken,
