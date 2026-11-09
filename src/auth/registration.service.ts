@@ -64,7 +64,7 @@ export class RegistrationService {
 
       try {
         await this.email.sendVerificationEmail(user.email, user.fullName, token);
-      } catch (error) {
+      } catch {
         logger.error('Verification email delivery failed.');
       }
       return { message: GENERIC_MESSAGE };
@@ -143,7 +143,7 @@ export class RegistrationService {
 
     try {
       await this.email.sendVerificationEmail(user.email, user.fullName, token);
-    } catch (error) {
+    } catch {
       logger.error('Verification email resend failed.');
     }
     return { message: GENERIC_MESSAGE };
