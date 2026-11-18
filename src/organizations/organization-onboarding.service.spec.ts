@@ -201,10 +201,7 @@ describe('OrganizationOnboardingService', () => {
   it('closes a restricted onboarding session without affecting an AssetPass account', async () => {
     const { service, sessionRepo } = setup();
     await expect(service.closeOnboardingSession('session-1')).resolves.toEqual({ closed: true });
-    expect(sessionRepo.update).toHaveBeenCalledWith(
-      { id: 'session-1', revokedAt: expect.anything() },
-      { revokedAt: expect.any(Date) },
-    );
+    expect(sessionRepo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'session-1', revokedAt: expect.any(Date) }));
   });
 
   it('issues a one-time claim invitation only for an approved organisation application', async () => {
