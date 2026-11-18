@@ -3,7 +3,8 @@ import type { Request } from 'express';
 import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { BrowserOriginGuard } from '../auth/guards/browser-origin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OrganizationFirstApplicationInput, OrganizationOnboardingService } from './organization-onboarding.service';
+import { OrganizationOnboardingService } from './organization-onboarding.service';
+import type { OrganizationFirstApplicationInput } from './organization-onboarding.service';
 
 type AuthenticatedRequest = Request & { user: AuthenticatedIdentity };
 
