@@ -56,10 +56,19 @@ The authentication routes, password verification, access-token issuance, refresh
 
 **Do not deploy the new identity resolver before the migration.** It queries the new table during login and session identity resolution.
 
+## Server-side workspace enforcement
+
+The following personal asset endpoints now require both a valid authenticated JWT and an active Individual Workspace:
+
+- `POST /api/v1/assets/registrations/individual`
+- `GET /api/v1/assets/registrations/mine`
+
+The `IndividualWorkspaceActiveGuard` derives the user ID from the authenticated request and checks the persisted active workspace record. A client cannot bypass the check by changing a route, hiding navigation or submitting another user ID. Organisation asset endpoints remain governed by their separate organisation membership/permission checks.
+
 ## Known limitations and next design gates
 
 - This is an activation flag/lifecycle record, not yet a fully provisioned personal workspace aggregate.
 - Deactivation dependency checks are not yet implemented. Before personal assets, documents, obligations, delegated relationships and workflows become active domains, define rules preventing deactivation from stranding records or silently cancelling obligations.
 - Workspace preferences, entitlements, capability configuration, data export and deletion are separate concerns.
-- The UI guard is not an authorization boundary; every future workspace API must enforce active state and resource permissions server-side.
+- The UI guard is not an authorization boundary. An API guard now enforces active workspace state for the existing personal asset-registration and personal-registration-list endpoints. Every future workspace API must apply the same server-side state and resource-permission checks.
 - Migration execution against a disposable PostgreSQL database and full end-to-end regression testing remain required.
