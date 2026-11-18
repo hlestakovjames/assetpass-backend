@@ -32,6 +32,13 @@ export class OrganizationOnboardingController {
     return this.service.verify(body?.token);
   }
 
+  @Post('claim')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, BrowserOriginGuard)
+  claimAvailable(@Req() request: AuthenticatedRequest) {
+    return this.service.claimAvailable(request.user.id);
+  }
+
   @Post(':organizationId/claim')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, BrowserOriginGuard)
