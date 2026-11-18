@@ -338,6 +338,10 @@ export class OrganizationsService {
         await manager.getRepository(OrganizationMembership).update(
           { organizationId: id, status: OrganizationMembershipStatus.PENDING }, { status: OrganizationMembershipStatus.REJECTED },
         );
+        await manager.getRepository(OrganizationOnboardingApplication).update(
+          { organizationId: id },
+          { status: OrganizationOnboardingStatus.REJECTED },
+        );
       }
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId, action: 'organization.status.changed', entityType: 'organization', entityId: id,
