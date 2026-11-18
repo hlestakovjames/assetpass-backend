@@ -104,6 +104,7 @@ describe('JwtStrategy', () => {
       fullName: activeUser.fullName,
       email: activeUser.email,
       status: UserStatus.ACTIVE,
+      sessionId,
     });
 
     expect(result).not.toHaveProperty('passwordHash');
