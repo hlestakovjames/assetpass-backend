@@ -65,7 +65,7 @@ describe('OrganizationOnboardingService', () => {
       query: jest.fn(),
       transaction: jest.fn(async (callback: (value: EntityManager) => unknown) => callback(manager as unknown as EntityManager)),
     };
-    const email = { sendOrganizationOnboardingVerificationEmail: jest.fn().mockResolvedValue(undefined) };
+    const email = { sendOrganizationOnboardingVerificationEmail: jest.fn().mockResolvedValue(undefined), sendOrganizationClaimInvitationEmail: jest.fn().mockResolvedValue(undefined) };
     const service = new OrganizationOnboardingService(
       dataSource as unknown as DataSource,
       appRepo as never,
@@ -134,19 +134,21 @@ describe('OrganizationOnboardingService', () => {
     manager.query.mockResolvedValue([{ id: application.id }]);
     appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
     userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'other@example.org', emailVerifiedAt: new Date() });
-    await expect(service.claim('organization-1', 'user-1')).rejects.toBeInstanceOf(ConflictException);
+    dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
+    await expect(service.claimWithToken('user-1', 'c'.repeat(43))).rejects.toBeInstanceOf(ConflictException);
     expect(orgRepo.findOneBy).not.toHaveBeenCalled();
     expect(membershipRepo.save).not.toHaveBeenCalled();
   });
 
   it('links the verified representative account as Organization Owner after platform approval', async () => {
-    const { service, manager, appRepo, userRepo, orgRepo, membershipRepo, membershipRoleRepo, auditRepo } = setup();
+    const { service, manager, dataSource, appRepo, userRepo, orgRepo, membershipRepo, membershipRoleRepo, auditRepo } = setup();
+    dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
     manager.query.mockResolvedValue([{ id: application.id }]);
     appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
     userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date() });
     orgRepo.findOneBy.mockResolvedValue({ id: 'organization-1', status: 'active' });
     membershipRepo.findOneBy.mockResolvedValue(null);
-    const result = await service.claim('organization-1', 'user-1');
+    const result = await service.claimWithToken('user-1', 'c'.repeat(43));
     expect(membershipRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       organizationId: 'organization-1', userId: 'user-1', status: 'active',
     }));
@@ -161,34 +163,33 @@ describe('OrganizationOnboardingService', () => {
     }));
     expect(result.status).toBe('active');
   });
-  it('claims the only approved application matching the verified account email', async () => {
-    const { service, dataSource, userRepo } = setup();
-    userRepo.findOneBy.mockResolvedValue({
-      id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date(),
-      status: 'active', approvalStatus: 'approved',
+  it('issues a one-time claim invitation only for an approved organisation application', async () => {
+    const { service, manager, appRepo, email } = setup();
+    manager.query.mockResolvedValue([{ id: application.id }]);
+    appRepo.findOneBy.mockResolvedValue({
+      ...application,
+      organizationId: 'organization-1',
+      status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
     });
-    dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
-    const claim = jest.spyOn(service, 'claim').mockResolvedValue({
-      organizationId: 'organization-1', membershipId: 'membership-1', status: 'active',
-    });
-    const result = await service.claimAvailable('user-1');
-    expect(claim).toHaveBeenCalledWith('organization-1', 'user-1');
-    expect(result.organizationId).toBe('organization-1');
+    const result = await service.issueClaimInvitation('organization-1');
+    expect(result).toEqual({ invitationIssued: true, emailSent: true });
+    expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      claimTokenHash: expect.any(String),
+      claimTokenIssuedAt: expect.any(Date),
+      claimTokenExpiresAt: expect.any(Date),
+    }));
+    expect(email.sendOrganizationClaimInvitationEmail).toHaveBeenCalledWith(
+      'amina@example.org', 'Amina', 'Example Foundation', expect.any(String),
+    );
   });
 
-  it('rejects ambiguous approved applications for the same representative email', async () => {
-    const { service, dataSource, userRepo } = setup();
-    userRepo.findOneBy.mockResolvedValue({
-      id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date(),
-      status: 'active', approvalStatus: 'approved',
-    });
-    dataSource.query.mockResolvedValue([
-      { organizationId: 'organization-1' },
-      { organizationId: 'organization-2' },
-    ]);
-    await expect(service.claimAvailable('user-1')).rejects.toThrow(
-      'More than one approved organisation application matches this email.',
+  it('rejects invalid or expired claim tokens before opening a claim transaction', async () => {
+    const { service, dataSource } = setup();
+    dataSource.query.mockResolvedValue([]);
+    await expect(service.claimWithToken('user-1', 'x'.repeat(43))).rejects.toThrow(
+      'This organisation claim code is invalid or has expired.',
     );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
 });
