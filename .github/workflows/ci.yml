@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/organization-identity-rbac
+      - development/architecture-alignment
   pull_request:
     branches:
       - main
