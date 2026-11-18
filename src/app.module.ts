@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { AccessControlModule } from './access-control/access-control.module';
 import { AssetsModule } from './assets/assets.module';
+import { WorkspacesModule } from './workspaces/workspaces.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -44,6 +45,7 @@ import { AppService } from './app.service';
     AccessControlModule,
     OrganizationsModule,
     AssetsModule,
+    WorkspacesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
