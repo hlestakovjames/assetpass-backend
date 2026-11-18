@@ -14,6 +14,8 @@ export class CreateOrganizationFirstOnboarding1794700000000 implements Migration
         "representative_position" varchar(160) NOT NULL,
         "registration_relationship" varchar(120) NOT NULL,
         "authority_confirmed_at" timestamptz NOT NULL,
+        "privacy_notice_acknowledged_at" timestamptz NOT NULL,
+        "privacy_notice_version" varchar(40) NOT NULL,
         "organization_data" jsonb NOT NULL,
         "verification_token_hash" varchar(64) NOT NULL,
         "verification_expires_at" timestamptz NOT NULL,
@@ -24,7 +26,7 @@ export class CreateOrganizationFirstOnboarding1794700000000 implements Migration
         "status" varchar(40) NOT NULL DEFAULT 'pending_email_verification',
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "chk_org_onboarding_status" CHECK ("status" IN ('pending_email_verification', 'submitted_for_review', 'claimed'))
+        CONSTRAINT "chk_org_onboarding_status" CHECK ("status" IN ('pending_email_verification', 'submitted_for_review', 'claimed', 'rejected'))
       )
     `);
     await queryRunner.query('CREATE INDEX "idx_org_onboarding_status_created" ON "organization_onboarding_applications" ("status", "created_at")');
