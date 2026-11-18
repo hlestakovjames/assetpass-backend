@@ -21,6 +21,7 @@ export interface OrganizationFirstApplicationInput {
   representativePosition: string;
   registrationRelationship: string;
   authorityConfirmation: string;
+  privacyNoticeAcknowledged: boolean;
   organizationDisplayName: string;
   organizationType: string;
   legalName?: string;
@@ -273,8 +274,8 @@ function validateApplication(input: OrganizationFirstApplicationInput) {
       !position || position.length > 160 || !relationship || relationship.length > 120 ||
       !displayName || displayName.length > 200 || !organizationType || organizationType.length > 80 ||
       !isEmail(contactEmail) || !isPhone(contactPhone) || !physicalAddress || physicalAddress.length > 2000 ||
-      typeof input.authorityConfirmation !== 'string' || input.authorityConfirmation.trim().toLowerCase() !== 'yes') {
-    throw new BadRequestException('Provide valid representative details, organisation name and type, official contact details, physical address, and confirm authority to submit this application.');
+      typeof input.authorityConfirmation !== 'string' || input.authorityConfirmation.trim().toLowerCase() !== 'yes' || input.privacyNoticeAcknowledged !== true) {
+    throw new BadRequestException('Provide valid representative details, organisation name and type, official contact details, physical address, confirm authority to submit this application, and acknowledge the privacy notice.');
   }
   const alternativeEmail = optional(input.alternativeEmail, 320)?.toLowerCase() ?? null;
   if (alternativeEmail && !isEmail(alternativeEmail)) throw new BadRequestException('Enter a valid alternative organisation email.');
