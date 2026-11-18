@@ -55,6 +55,11 @@ export class OrganizationOnboardingService {
 
   async submit(input: OrganizationFirstApplicationInput) {
     const data = validateApplication(input);
+    const registrationNumber = data.organizationData.registrationNumber;
+    if (registrationNumber) {
+      const duplicate = await this.dataSource.getRepository(Organization).findOneBy({ registrationNumber });
+      if (duplicate) throw new ConflictException('An organisation with this registration number already exists.');
+    }
     const token = randomBytes(32).toString('base64url');
     const application = await this.dataSource.transaction(async (manager) => {
       const record = await manager.getRepository(OrganizationOnboardingApplication).save({
