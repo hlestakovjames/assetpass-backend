@@ -66,8 +66,6 @@ import { AuthCookies } from './utils/auth-cookies';
     CookieCsrfGuard,
     JwtStrategy,
     JwtAuthGuard,
-    BrowserOriginGuard,
-    EmailDeliveryService,
   ],
   exports: [
     AuthService,
@@ -75,6 +73,8 @@ import { AuthCookies } from './utils/auth-cookies';
     RefreshTokenService,
     AccessTokenService,
     JwtAuthGuard,
+    BrowserOriginGuard,
+    EmailDeliveryService,
   ],
 })
 export class AuthModule {}
