@@ -376,6 +376,10 @@ export class OrganizationOnboardingService {
       application.claimTokenHash = null;
       application.claimTokenExpiresAt = null;
       await applicationRepo.save(application);
+      await manager.getRepository(OrganizationOnboardingSession).update(
+        { applicationId: application.id, revokedAt: IsNull() },
+        { revokedAt: new Date() },
+      );
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId: userId,
         action: 'organization.onboarding.claimed',
