@@ -57,7 +57,8 @@ describe('IdentityResolutionService', () => {
           permission_key: 'organization.members.read',
         },
       ])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'individual-1', status: 'active' }]);
 
     const result = await service.resolve(user);
 
@@ -89,7 +90,8 @@ describe('IdentityResolutionService', () => {
       .mockResolvedValueOnce([
         { key: 'platform.users.view' },
         { key: 'platform.organizations.review' },
-      ]);
+      ])
+      .mockResolvedValueOnce([{ id: 'individual-1', status: 'active' }]);
 
     const result = await service.resolve(user);
 
@@ -137,9 +139,21 @@ describe('IdentityResolutionService', () => {
       roles: [],
       permissions: [],
     });
-    expect(result.defaultWorkspace.href).toBe('/organization/overview');
-    expect(result.availableWorkspaces).toEqual([
-      { type: 'individual', label: 'Individual workspace', href: '/individual/overview' },
-    ]);
+    expect(result.defaultWorkspace).toBeNull();
+    expect(result.availableWorkspaces).toEqual([]);
   });
 });
+
+
+  it('does not invent an Individual Workspace for an account without an activated workspace', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.resolve(user);
+
+    expect(result.availableWorkspaces).toEqual([]);
+    expect(result.defaultWorkspace).toBeNull();
+  });
