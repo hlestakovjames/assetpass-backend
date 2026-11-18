@@ -5,6 +5,41 @@ import { ConfigService } from '@nestjs/config';
 export class EmailDeliveryService {
   constructor(private readonly config: ConfigService) {}
 
+  async sendOrganizationOnboardingVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
+    const provider = (this.config.get<string>('EMAIL_PROVIDER') ?? 'brevo').toLowerCase();
+    const appOrigin = this.config.getOrThrow<string>('APP_ORIGIN');
+    const verificationUrl = new URL('/organization-onboarding/verify', appOrigin);
+    verificationUrl.searchParams.set('token', token);
+    const textContent = `Hello ${firstName},\n\nVerify this email address to submit your organisation application for AssetPass platform review:\n${verificationUrl.toString()}\n\nThis link expires in 24 hours. If you did not submit an organisation application, you can ignore this email.\n\nAssetPass`;
+    const htmlContent = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#123047"><h2>Verify your organisation application</h2><p>Hello ${escapeHtml(firstName)},</p><p>Confirm this representative email address to submit the organisation application for AssetPass platform review.</p><p><a href="${verificationUrl.toString()}" style="display:inline-block;padding:12px 20px;background:#123047;color:#fff;text-decoration:none;border-radius:6px">Verify representative email</a></p><p>This link expires in 24 hours. If you did not submit an organisation application, you can ignore this email.</p><p>AssetPass</p></div>`;
+    if (provider === 'brevo') {
+      const apiKey = this.config.get<string>('BREVO_API_KEY');
+      const senderEmail = this.config.get<string>('BREVO_SENDER_EMAIL');
+      const senderName = this.config.get<string>('BREVO_SENDER_NAME') ?? 'AssetPass';
+      if (!apiKey || !senderEmail) throw new ServiceUnavailableException('Email delivery is not configured. Please try again later.');
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': apiKey, 'Content-Type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ sender: { name: senderName, email: senderEmail }, to: [{ email }], subject: 'Verify your AssetPass organisation application', textContent, htmlContent }),
+      });
+      if (!response.ok) throw new ServiceUnavailableException('We could not send the organisation verification email. Please try again later.');
+      return;
+    }
+    if (provider === 'resend') {
+      const apiKey = this.config.get<string>('RESEND_API_KEY');
+      const from = this.config.get<string>('EMAIL_FROM');
+      if (!apiKey || !from) throw new ServiceUnavailableException('Email delivery is not configured. Please try again later.');
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to: [email], subject: 'Verify your AssetPass organisation application', text: textContent, html: htmlContent }),
+      });
+      if (!response.ok) throw new ServiceUnavailableException('We could not send the organisation verification email. Please try again later.');
+      return;
+    }
+    throw new ServiceUnavailableException('The configured email provider is not supported.');
+  }
+
   async sendVerificationEmail(email: string, fullName: string, token: string): Promise<void> {
     const provider = (this.config.get<string>('EMAIL_PROVIDER') ?? 'brevo').toLowerCase();
     const appOrigin = this.config.getOrThrow<string>('APP_ORIGIN');
