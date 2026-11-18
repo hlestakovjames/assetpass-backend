@@ -100,7 +100,7 @@ See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for
 - Resolve identity, active context, tenant and permissions on the server.
 - Do not infer authority from a client-supplied role, workspace ID or navigation state.
 - Preserve platform, organisation and individual authorization boundaries.
-- Organisation-first onboarding must use a constrained, attributable, time-bounded onboarding principal; do not create anonymous sensitive administration.
+- Organisation-first onboarding must verify an attributable human representative before platform review. The current initial implementation uses time-bounded email tokens and a separate post-approval claim code; it does not yet issue a restricted onboarding session. Do not permit anonymous sensitive administration.
 - Account creation must remain separate from Individual Workspace activation. Existing accounts are backfilled as active by the new migration to preserve their current access; accounts registered after the migration are not automatically given an Individual Workspace.
 - Asset identity, ownership, management authority, custody, assignment and location are distinct.
 - Preserve recipient acknowledgement and atomic completion of custody-changing asset transfers.
@@ -110,12 +110,13 @@ See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for
 
 ## Next alignment work
 
-1. Complete and validate the additive Individual Workspace activation slice (migration `1794500000000-CreateIndividualWorkspaceActivation`).
-2. Organisation-first onboarding and later identity linking.
-3. Global Administrator role migration and platform-authority boundaries.
-4. Platform-managed asset taxonomy and expanded lifecycle APIs.
-5. Marketplace domain, public discovery and transaction boundaries.
-6. Shared document, workflow, communication, integration and intelligence/security capabilities.
+1. Complete CI and review of the Individual Workspace lifecycle and session-scoped context selection.
+2. Complete CI and review of the account-free organisation application, representative verification, platform review and post-approval claim-code flow.
+3. Add constrained onboarding sessions, evidence upload/review and multiple-representative authority.
+4. Global Administrator role migration and platform-authority boundaries.
+5. Platform-managed asset taxonomy and expanded lifecycle APIs.
+6. Marketplace domain, public discovery and transaction boundaries.
+7. Shared document, workflow, communication, integration and intelligence/security capabilities.
 
 ## Source of truth
 
