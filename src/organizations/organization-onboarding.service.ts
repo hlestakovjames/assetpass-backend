@@ -135,7 +135,7 @@ export class OrganizationOnboardingService {
       const applicationRepo = manager.getRepository(OrganizationOnboardingApplication);
       const application = await applicationRepo.findOneBy({ id: rows[0].id });
       if (!application) throw new BadRequestException('This organisation verification link is invalid or has expired.');
-      const data = application.organizationData;
+      const data = application.organizationData as Record<string, string | null>;
       const organization = await manager.getRepository(Organization).save({
         displayName: data.displayName,
         legalName: data.legalName,
@@ -211,13 +211,24 @@ export class OrganizationOnboardingService {
       if (existing && existing.status !== OrganizationMembershipStatus.REMOVED) {
         throw new ConflictException('This account already has an organisation membership.');
       }
-      const membership = await membershipRepo.save({
-        organizationId,
-        userId,
-        status: OrganizationMembershipStatus.ACTIVE,
-        invitedByUserId: null,
-        joinedAt: new Date(),
-      });
+      let membership: OrganizationMembership;
+      if (existing) {
+        membership = await membershipRepo.save({
+          ...existing,
+          status: OrganizationMembershipStatus.ACTIVE,
+          invitedByUserId: null,
+          joinedAt: new Date(),
+        });
+        await manager.getRepository(OrganizationMembershipRole).delete({ membershipId: membership.id });
+      } else {
+        membership = await membershipRepo.save({
+          organizationId,
+          userId,
+          status: OrganizationMembershipStatus.ACTIVE,
+          invitedByUserId: null,
+          joinedAt: new Date(),
+        });
+      }
       const ownerRole = await manager.getRepository(OrganizationRole).findOne({
         where: { organizationId: IsNull(), key: 'organization_owner', isActive: true },
       });
