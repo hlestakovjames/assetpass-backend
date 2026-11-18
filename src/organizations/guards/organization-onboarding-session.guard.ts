@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { OrganizationOnboardingSession } from '../entities/organization-onboarding-session.entity';
 
 @Injectable()
@@ -27,7 +27,7 @@ export class OrganizationOnboardingSessionGuard implements CanActivate {
       .andWhere('session.lastSeenAt > :idleCutoff', { idleCutoff: new Date(now.getTime() - 30 * 60 * 1000) })
       .getOne();
     if (!session) throw new UnauthorizedException('This organisation onboarding session has expired or been closed.');
-    await this.sessions.update({ id: session.id, revokedAt: null }, { lastSeenAt: now });
+    await this.sessions.update({ id: session.id, revokedAt: IsNull() }, { lastSeenAt: now });
     request.organizationOnboarding = {
       sessionId: session.id,
       applicationId: session.applicationId,
