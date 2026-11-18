@@ -8,7 +8,7 @@ import { OrganizationRole } from '../access-control/entities/organization-role.e
 import { OrganizationRolePermission } from '../access-control/entities/organization-role-permission.entity';
 import { User, UserStatus } from '../identity/entities/user.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
-import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';
+import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';\nimport { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
 
 export interface RegisterOrganizationInput {
   displayName: string; legalName?: string; category: string; registrationNumber?: string;
