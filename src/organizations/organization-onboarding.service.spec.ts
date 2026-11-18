@@ -18,6 +18,8 @@ describe('OrganizationOnboardingService', () => {
     representativePosition: 'Director',
     registrationRelationship: 'Director',
     authorityConfirmedAt: new Date(),
+    privacyNoticeAcknowledgedAt: new Date(),
+    privacyNoticeVersion: '2026-11-09',
     organizationData: {
       displayName: 'Example Foundation',
       organizationType: 'NGO',
