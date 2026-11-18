@@ -60,7 +60,7 @@ jobs:
       JWT_ACCESS_ISSUER: assetpass-api
       JWT_ACCESS_AUDIENCE: assetpass-app
       APP_ORIGIN: http://localhost:3000
-      DB_SSL: false
+      DB_SSL: "false"
     steps:
       - name: Check out source
         uses: actions/checkout@v4
