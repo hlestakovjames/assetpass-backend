@@ -233,7 +233,6 @@ export class OrganizationOnboardingService {
         id: organization.id,
         displayName: organization.displayName,
         status: organization.status,
-        decisionNote: organization.decisionNote,
       } : null,
       submittedAt: application.emailVerifiedAt,
       updatedAt: application.updatedAt,
