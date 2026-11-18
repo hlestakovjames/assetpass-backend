@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/comm
 import type { Request } from 'express';
 import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { IndividualWorkspaceActiveGuard } from '../workspaces/guards/individual-workspace-active.guard';
 import { RequirePlatformPermission } from '../access-control/platform-permission.decorator';
 import { PlatformPermissionGuard } from '../access-control/platform-permission.guard';
 import { AssetsService, type CreateAssetRegistrationInput, type ReviewAssetRegistrationInput } from './assets.service';
@@ -14,11 +15,13 @@ export class AssetsController {
   constructor(private readonly service: AssetsService) {}
 
   @Post('registrations/individual')
+  @UseGuards(IndividualWorkspaceActiveGuard)
   createIndividual(@Req() request: AuthenticatedRequest, @Body() body: CreateAssetRegistrationInput) {
     return this.service.createIndividualRegistration(request.user.id, body);
   }
 
   @Get('registrations/mine')
+  @UseGuards(IndividualWorkspaceActiveGuard)
   listMine(@Req() request: AuthenticatedRequest) {
     return this.service.listMine(request.user.id);
   }

@@ -9,6 +9,8 @@ import { OrganizationRolePermission } from '../access-control/entities/organizat
 import { User, UserStatus } from '../identity/entities/user.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';
+import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
+import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 
 export interface RegisterOrganizationInput {
   displayName: string; legalName?: string; category: string; registrationNumber?: string;
@@ -337,6 +339,26 @@ export class OrganizationsService {
         await manager.getRepository(OrganizationMembership).update(
           { organizationId: id, status: OrganizationMembershipStatus.PENDING }, { status: OrganizationMembershipStatus.REJECTED },
         );
+        await manager.getRepository(OrganizationOnboardingApplication).update(
+          { organizationId: id },
+          { status: OrganizationOnboardingStatus.REJECTED },
+        );
+        const onboardingApplication = await manager.getRepository(OrganizationOnboardingApplication).findOneBy({ organizationId: id });
+        if (onboardingApplication) {
+          await manager.getRepository(OrganizationOnboardingSession).update(
+            { applicationId: onboardingApplication.id, revokedAt: IsNull() },
+            { revokedAt: new Date() },
+          );
+        }
+      }
+      if (status === OrganizationStatus.SUSPENDED) {
+        const onboardingApplication = await manager.getRepository(OrganizationOnboardingApplication).findOneBy({ organizationId: id });
+        if (onboardingApplication) {
+          await manager.getRepository(OrganizationOnboardingSession).update(
+            { applicationId: onboardingApplication.id, revokedAt: IsNull() },
+            { revokedAt: new Date() },
+          );
+        }
       }
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId, action: 'organization.status.changed', entityType: 'organization', entityId: id,

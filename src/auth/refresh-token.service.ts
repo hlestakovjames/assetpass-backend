@@ -256,6 +256,16 @@ export class RefreshTokenService {
         const savedReplacement =
           await sessionsRepository.save(replacement);
 
+        // Workspace context follows the rotated session in the same token family.
+        await manager.query(
+          `INSERT INTO auth_session_contexts (session_id, context_type, context_id, updated_at)
+           SELECT $1, context_type, context_id, NOW()
+           FROM auth_session_contexts
+           WHERE session_id = $2
+           ON CONFLICT (session_id) DO NOTHING`,
+          [savedReplacement.id, session.id],
+        );
+
         session.revokedAt = now;
         session.lastUsedAt = now;
         session.revocationReason = 'rotated';

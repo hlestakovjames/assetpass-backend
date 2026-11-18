@@ -77,6 +77,9 @@ export class RegistrationService {
     if (accountType !== 'individual' && accountType !== 'organization') {
       throw new BadRequestException('Choose an individual or organization account.');
     }
+    if (accountType === 'organization') {
+      throw new BadRequestException('Organisation applications must use the organisation-first onboarding process. No personal account is created during organisation application.');
+    }
 
     const email = normalizeEmail(input.email);
     const password = input.password;
@@ -97,7 +100,7 @@ export class RegistrationService {
       throw new BadRequestException('Enter a valid alternative phone number.');
     }
 
-    const organizationInput = accountType === 'organization' ? input as OrganizationRegistration : null;
+    const organizationInput: OrganizationRegistration | null = null;
     const organization = organizationInput ? validateOrganization(organizationInput) : null;
     const passwordHash = await argon2.hash(password);
     const now = new Date();

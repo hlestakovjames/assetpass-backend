@@ -8,7 +8,7 @@ import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.
 export type AuthenticatedIdentity = Pick<
   User,
   'id' | 'fullName' | 'email' | 'status'
->;
+> & { sessionId?: string };
 
 const DUMMY_PASSWORD_HASH =
   '$argon2id$v=19$m=65536,t=3,p=4$3ZTlvGN3OmrGRbrQBhd1Cw$d1CF+W/AlcxDREseDyczhDMdbhNVVa3L3h2VG5whT5Q';

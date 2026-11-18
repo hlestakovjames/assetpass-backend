@@ -176,6 +176,7 @@ describe('Real JWT authentication HTTP integration (e2e)', () => {
       fullName: activeUser.fullName,
       email: activeUser.email,
       status: UserStatus.ACTIVE,
+      sessionId: SESSION_ID,
     });
 
     expect(usersRepository.findOne).toHaveBeenCalledTimes(1);

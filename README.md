@@ -20,6 +20,7 @@ Do not treat every documented domain as an existing module or introduce microser
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
 - `audit`: platform audit records.
 - `health`: health endpoint.
+- `workspaces`: explicit Individual Workspace activation/deactivation lifecycle, session-scoped workspace context selection, persisted state, audit events and server-side active-workspace guard.
 - `database/migrations`: TypeORM migrations.
 - `test`: end-to-end test foundation.
 
@@ -69,6 +70,17 @@ npm run start:dev
 
 The API global prefix is `/api/v1`; the default local port is `3001`. The health endpoint is provided by the health module.
 
+### Workspace context selection API
+
+- `POST /api/v1/workspaces/context/select` — select an authorised platform, Individual Workspace or organisation context for the current authenticated session. The request accepts `contextType` and `contextId` (null only for platform context). The backend verifies current authority and records an audit event. Selection follows refresh-token rotation within the same session family; separate login sessions remain independent.
+
+### Individual Workspace lifecycle API
+
+- `POST /api/v1/workspaces/individual/activate` — activate or reactivate the authenticated user's Individual Workspace.
+- `POST /api/v1/workspaces/individual/deactivate` — deactivate the authenticated user's Individual Workspace without deleting its workspace record.
+
+Both operations require an authenticated session. The actor is derived from the validated JWT; the API does not accept a client-supplied user ID. Each transition is committed with an audit event. `GET /api/v1/auth/me` and the login identity response include only activated Individual Workspaces in `availableWorkspaces`; `defaultWorkspace` may now be `null`.
+
 ## Validation
 
 ```bash
@@ -77,15 +89,19 @@ npm test -- --runInBand
 npm run test:e2e
 ```
 
-The repository includes a GitHub Actions workflow for build and unit-test validation. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+The GitHub Actions workflow validates the backend build, unit tests, the complete end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services (including latest-migration rollback and reapply). Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+
+## Workspace lifecycle implementation note
+
+See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for the persistence model, endpoints, audit behavior and migration-before-deployment requirement.
 
 ## Critical implementation invariants
 
 - Resolve identity, active context, tenant and permissions on the server.
 - Do not infer authority from a client-supplied role, workspace ID or navigation state.
 - Preserve platform, organisation and individual authorization boundaries.
-- Organisation-first onboarding must use a constrained, attributable, time-bounded onboarding principal; do not create anonymous sensitive administration.
-- Account creation must remain separate from Individual Workspace activation.
+- Organisation-first onboarding must verify an attributable human representative before platform review. The initial implementation issues a separate application-bound read-only onboarding session after email verification, alongside a separate post-approval claim code. Do not permit anonymous sensitive administration.
+- Account creation must remain separate from Individual Workspace activation. Existing accounts are backfilled as active by the new migration to preserve their current access; accounts registered after the migration are not automatically given an Individual Workspace.
 - Asset identity, ownership, management authority, custody, assignment and location are distinct.
 - Preserve recipient acknowledgement and atomic completion of custody-changing asset transfers.
 - Marketplace commands must not directly mutate authoritative asset ownership/custody tables.
@@ -94,13 +110,31 @@ The repository includes a GitHub Actions workflow for build and unit-test valida
 
 ## Next alignment work
 
-1. Identity/account/workspace context and optional Individual Workspace activation.
-2. Organisation-first onboarding and later identity linking.
-3. Global Administrator role migration and platform-authority boundaries.
-4. Platform-managed asset taxonomy and expanded lifecycle APIs.
-5. Marketplace domain, public discovery and transaction boundaries.
-6. Shared document, workflow, communication, integration and intelligence/security capabilities.
+1. Complete CI and review of the Individual Workspace lifecycle and session-scoped context selection.
+2. Complete CI and review of the account-free organisation application, representative verification, platform review and post-approval claim-code flow.
+3. Add private evidence upload/review, session recovery and multiple-representative authority; the current onboarding session is read-only.
+4. Global Administrator role migration and platform-authority boundaries.
+5. Platform-managed asset taxonomy and expanded lifecycle APIs.
+6. Marketplace domain, public discovery and transaction boundaries.
+7. Shared document, workflow, communication, integration and intelligence/security capabilities.
 
 ## Source of truth
 
 The expanded product and technical architecture, requirements, API boundaries, data diagrams, decision register and acceptance criteria are maintained in [assetpass-docs](https://github.com/hlestakovjames/assetpass-docs).
+
+
+## Organisation-first onboarding
+
+Organisation registration is now a separate lifecycle; `POST /api/v1/auth/register` rejects `accountType=organization` while individual account registration remains unchanged.
+
+- `POST /api/v1/organizations/onboarding/applications` — public, browser-origin guarded application submission. Does not create a personal account.
+- `POST /api/v1/organizations/onboarding/resend-verification` — generic-response verification resend.
+- `POST /api/v1/organizations/onboarding/verify-email` — consumes a hashed, single-use 24-hour representative email token, creates an organisation in `pending_review` and returns a separate restricted session token once.
+- Existing `/api/v1/platform/organizations/:id/status` review controls approve/reject the organisation. Approval issues a single-use claim invitation and records the reviewer/audit event; the response reports whether email delivery succeeded.
+- `GET /api/v1/organizations/onboarding/session` — returns only the application associated with the restricted session; `POST /api/v1/organizations/onboarding/session/close` revokes it. The session uses `X-Organization-Onboarding-Session`, is hash-stored, read-only, two-hour absolute and 30-minute idle.
+
+- `POST /api/v1/organizations/onboarding/claim` — authenticated representative submits the seven-day one-time claim code; successful claim creates the active membership, assigns `organization_owner` and revokes outstanding onboarding sessions.
+
+Migrations: `1794700000000-CreateOrganizationFirstOnboarding` and `1794800000000-CreateOrganizationOnboardingSessions`. Apply after migrations `1794500000000` and `1794600000000`.
+
+Email verification proves mailbox control only; it is not legal due diligence or proof of authority. Evidence upload/review, session recovery, multi-representative authority, requests for information and browser-level full journey testing remain outstanding. The current temporary session is read-only; no arbitrary object references are accepted as evidence.
