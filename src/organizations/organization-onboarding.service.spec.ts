@@ -7,6 +7,7 @@ import { User } from '../identity/entities/user.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationMembership } from './entities/organization-membership.entity';
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
+import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
 
 describe('OrganizationOnboardingService', () => {
@@ -46,9 +47,9 @@ describe('OrganizationOnboardingService', () => {
     const membershipRoleRepo = { save: jest.fn(), delete: jest.fn() };
     const roleRepo = { findOne: jest.fn().mockResolvedValue({ id: 'owner-role' }) };
     const userRepo = { findOneBy: jest.fn() };
-    const auditRepo = { save: jest.fn() };
+    const auditRepo = { save: jest.fn() };\n    const sessionRepo = { save: jest.fn(async (value) => value), update: jest.fn() };
     const repos = new Map<unknown, unknown>([
-      [OrganizationOnboardingApplication, appRepo],
+      [OrganizationOnboardingApplication, appRepo],\n      [OrganizationOnboardingSession, sessionRepo],
       [Organization, orgRepo],
       [OrganizationMembership, membershipRepo],
       [OrganizationMembershipRole, membershipRoleRepo],
@@ -71,7 +72,7 @@ describe('OrganizationOnboardingService', () => {
       appRepo as never,
       email as never,
     );
-    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipRoleRepo, roleRepo, userRepo, auditRepo, dataSource, email };
+    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipRoleRepo, roleRepo, userRepo, auditRepo, sessionRepo, dataSource, email };
   }
 
   it('accepts an organization application without creating a personal user account', async () => {
@@ -112,7 +113,7 @@ describe('OrganizationOnboardingService', () => {
   });
 
   it('creates a pending-review organization only after representative email verification', async () => {
-    const { service, manager, appRepo, orgRepo } = setup();
+    const { service, manager, appRepo, orgRepo, sessionRepo } = setup();
     manager.query.mockResolvedValue([{ id: application.id }]);
     appRepo.findOneBy.mockResolvedValue({ ...application });
     const result = await service.verify('v'.repeat(43));
@@ -126,7 +127,7 @@ describe('OrganizationOnboardingService', () => {
       organizationId: 'organization-1',
       emailVerifiedAt: expect.any(Date),
     }));
-    expect(result.organizationId).toBe('organization-1');
+    expect(result.organizationId).toBe('organization-1');\n    expect(result.onboardingSessionToken).toEqual(expect.any(String));\n    expect(result.onboardingSessionExpiresAt).toEqual(expect.any(Date));\n    expect(sessionRepo.save).toHaveBeenCalledWith(expect.objectContaining({\n      applicationId: 'application-1', tokenHash: expect.any(String), scopes: ['application.read'],\n      expiresAt: expect.any(Date), revokedAt: null,\n    }));
   });
 
   it('requires an active account with the matching representative email and valid claim code', async () => {
