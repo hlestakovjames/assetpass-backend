@@ -27,6 +27,9 @@ export class OrganizationOnboardingApplication {
   @Column({ name: 'organization_id', type: 'uuid', nullable: true }) organizationId: string | null;
   @Column({ name: 'claimed_by_user_id', type: 'uuid', nullable: true }) claimedByUserId: string | null;
   @Column({ name: 'claimed_at', type: 'timestamptz', nullable: true }) claimedAt: Date | null;
+  @Column({ name: 'claim_token_hash', type: 'varchar', length: 64, nullable: true }) claimTokenHash: string | null;
+  @Column({ name: 'claim_token_expires_at', type: 'timestamptz', nullable: true }) claimTokenExpiresAt: Date | null;
+  @Column({ name: 'claim_token_issued_at', type: 'timestamptz', nullable: true }) claimTokenIssuedAt: Date | null;
   @Column({ type: 'varchar', length: 40, default: OrganizationOnboardingStatus.PENDING_EMAIL_VERIFICATION }) status: OrganizationOnboardingStatus;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
