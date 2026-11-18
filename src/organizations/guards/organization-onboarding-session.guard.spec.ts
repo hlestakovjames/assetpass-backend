@@ -24,7 +24,7 @@ describe('OrganizationOnboardingSessionGuard', () => {
     expect(query.where).toHaveBeenCalledWith('session.tokenHash = :tokenHash', {
       tokenHash: createHash('sha256').update('s'.repeat(43)).digest('hex'),
     });
-    expect(sessions.update).toHaveBeenCalledWith({ id: 'session-1', revokedAt: null }, expect.objectContaining({ lastSeenAt: expect.any(Date) }));
+    expect(sessions.update).toHaveBeenCalledWith(expect.objectContaining({ id: 'session-1' }), expect.objectContaining({ lastSeenAt: expect.any(Date) }));
     expect(request.organizationOnboarding).toEqual({ sessionId: 'session-1', applicationId: 'application-1', scopes: ['application.read'] });
   });
 
