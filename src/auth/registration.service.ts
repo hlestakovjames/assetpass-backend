@@ -100,7 +100,7 @@ export class RegistrationService {
       throw new BadRequestException('Enter a valid alternative phone number.');
     }
 
-    const organizationInput = accountType === 'organization' ? input as OrganizationRegistration : null;
+    const organizationInput: OrganizationRegistration | null = null;
     const organization = organizationInput ? validateOrganization(organizationInput) : null;
     const passwordHash = await argon2.hash(password);
     const now = new Date();
