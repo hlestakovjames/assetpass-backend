@@ -172,7 +172,7 @@ describe('OrganizationOnboardingService', () => {
       organizationId: 'organization-1',
       status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
     });
-    const result = await service.issueClaimInvitation('organization-1');
+    const result = await service.issueClaimInvitation('organization-1', 'reviewer-1');
     expect(result).toEqual({ invitationIssued: true, emailSent: true });
     expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       claimTokenHash: expect.any(String),
