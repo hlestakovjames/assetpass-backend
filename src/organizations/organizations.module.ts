@@ -10,6 +10,9 @@ import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { User } from '../identity/entities/user.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationMembership } from './entities/organization-membership.entity';
+import { OrganizationOnboardingApplication } from './entities/organization-onboarding-application.entity';
+import { OrganizationOnboardingController } from './organization-onboarding.controller';
+import { OrganizationOnboardingService } from './organization-onboarding.service';
 import { OrganizationsController } from './organizations.controller';
 import { PlatformOrganizationsController } from './platform-organizations.controller';
 import { OrganizationsService } from './organizations.service';
@@ -17,14 +20,14 @@ import { OrganizationsService } from './organizations.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Organization, OrganizationMembership, OrganizationRole, OrganizationMembershipRole,
+      Organization, OrganizationMembership, OrganizationOnboardingApplication, OrganizationRole, OrganizationMembershipRole,
       OrganizationRolePermission, Permission, User, PlatformAuditLog,
     ]),
     AuthModule,
     AccessControlModule,
   ],
-  controllers: [OrganizationsController, PlatformOrganizationsController],
-  providers: [OrganizationsService],
+  controllers: [OrganizationsController, PlatformOrganizationsController, OrganizationOnboardingController],
+  providers: [OrganizationsService, OrganizationOnboardingService],
   exports: [OrganizationsService],
 })
 export class OrganizationsModule {}
