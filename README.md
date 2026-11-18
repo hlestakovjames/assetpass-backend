@@ -116,3 +116,18 @@ See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for
 ## Source of truth
 
 The expanded product and technical architecture, requirements, API boundaries, data diagrams, decision register and acceptance criteria are maintained in [assetpass-docs](https://github.com/hlestakovjames/assetpass-docs).
+
+
+## Organisation-first onboarding
+
+Organisation registration is now a separate lifecycle; `POST /api/v1/auth/register` rejects `accountType=organization` while individual account registration remains unchanged.
+
+- `POST /api/v1/organizations/onboarding/applications` — public, browser-origin guarded application submission. Does not create a personal account.
+- `POST /api/v1/organizations/onboarding/resend-verification` — generic-response verification resend.
+- `POST /api/v1/organizations/onboarding/verify-email` — consumes a hashed, single-use 24-hour representative email token and creates an organisation in `pending_review`.
+- Existing `/api/v1/platform/organizations/:id/status` review controls approve/reject the organisation.
+- `POST /api/v1/organizations/onboarding/claim` — authenticated verified representative claims an active approved organisation. The service creates the active membership and assigns `organization_owner`.
+
+Migration: `1794700000000-CreateOrganizationFirstOnboarding`. It adds `organization_onboarding_applications` and makes `organizations.created_by_user_id` nullable. Apply after migrations `1794500000000` and `1794600000000`.
+
+Email verification proves mailbox control only; it is not legal due diligence or proof of authority. Evidence upload, a restricted onboarding session, multi-representative authority, approval notification and browser-level full journey testing remain outstanding.
