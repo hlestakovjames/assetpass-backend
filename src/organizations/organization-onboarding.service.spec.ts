@@ -1,0 +1,159 @@
+import { ConflictException } from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
+import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
+import { OrganizationRole } from '../access-control/entities/organization-role.entity';
+import { OrganizationMembershipRole } from '../access-control/entities/organization-membership-role.entity';
+import { User } from '../identity/entities/user.entity';
+import { Organization } from './entities/organization.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
+import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
+import { OrganizationOnboardingService } from './organization-onboarding.service';
+
+describe('OrganizationOnboardingService', () => {
+  const application = {
+    id: 'application-1',
+    representativeFirstName: 'Amina',
+    representativeLastName: 'Director',
+    representativeEmail: 'amina@example.org',
+    representativePosition: 'Director',
+    registrationRelationship: 'Director',
+    authorityConfirmedAt: new Date(),
+    organizationData: {
+      displayName: 'Example Foundation',
+      organizationType: 'NGO',
+      industrySector: 'Community development',
+      contactEmail: 'info@example.org',
+      contactPhone: '+254700000000',
+      physicalAddress: 'Nairobi, Kenya',
+      countryCode: 'KE',
+    },
+    verificationTokenHash: 'hash',
+    verificationExpiresAt: new Date(Date.now() + 60_000),
+    emailVerifiedAt: null,
+    organizationId: null,
+    claimedByUserId: null,
+    claimedAt: null,
+    status: OrganizationOnboardingStatus.PENDING_EMAIL_VERIFICATION,
+    updatedAt: new Date(0),
+  };
+
+  function setup() {
+    const appRepo = { save: jest.fn(async (value) => ({ ...value, id: value.id ?? 'application-1' })), findOneBy: jest.fn() };
+    const orgRepo = { save: jest.fn(async (value) => ({ ...value, id: 'organization-1', status: 'pending_review' })), findOneBy: jest.fn() };
+    const membershipRepo = { findOneBy: jest.fn(), save: jest.fn(async (value) => ({ ...value, id: 'membership-1' })) };
+    const membershipRoleRepo = { save: jest.fn(), delete: jest.fn() };
+    const roleRepo = { findOne: jest.fn().mockResolvedValue({ id: 'owner-role' }) };
+    const userRepo = { findOneBy: jest.fn() };
+    const auditRepo = { save: jest.fn() };
+    const repos = new Map<unknown, unknown>([
+      [OrganizationOnboardingApplication, appRepo],
+      [Organization, orgRepo],
+      [OrganizationMembership, membershipRepo],
+      [OrganizationMembershipRole, membershipRoleRepo],
+      [OrganizationRole, roleRepo],
+      [User, userRepo],
+      [PlatformAuditLog, auditRepo],
+    ]);
+    const manager = {
+      query: jest.fn(),
+      getRepository: jest.fn((entity: unknown) => repos.get(entity)),
+    };
+    const dataSource = {
+      transaction: jest.fn(async (callback: (value: EntityManager) => unknown) => callback(manager as unknown as EntityManager)),
+    };
+    const email = { sendOrganizationOnboardingVerificationEmail: jest.fn().mockResolvedValue(undefined) };
+    const service = new OrganizationOnboardingService(
+      dataSource as unknown as DataSource,
+      appRepo as never,
+      email as never,
+    );
+    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipRoleRepo, roleRepo, userRepo, auditRepo, dataSource, email };
+  }
+
+  it('accepts an organization application without creating a personal user account', async () => {
+    const { service, appRepo, email, repos, dataSource } = setup();
+    const result = await service.submit({
+      representativeFirstName: 'Amina',
+      representativeLastName: 'Director',
+      representativeEmail: 'amina@example.org',
+      representativePosition: 'Director',
+      registrationRelationship: 'Director',
+      authorityConfirmation: 'yes',
+      organizationDisplayName: 'Example Foundation',
+      organizationType: 'NGO',
+      contactEmail: 'info@example.org',
+      contactPhone: '+254700000000',
+      physicalAddress: 'Nairobi, Kenya',
+    });
+    expect(result.status).toBe(OrganizationOnboardingStatus.PENDING_EMAIL_VERIFICATION);
+    expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      representativeEmail: 'amina@example.org',
+      status: OrganizationOnboardingStatus.PENDING_EMAIL_VERIFICATION,
+      organizationId: null,
+    }));
+    expect(email.sendOrganizationOnboardingVerificationEmail).toHaveBeenCalledWith(
+      'amina@example.org', 'Amina', expect.any(String),
+    );
+    expect(repos.get(User)).toBeDefined();
+    expect((repos.get(User) as { findOneBy: jest.Mock }).findOneBy).not.toHaveBeenCalled();
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects email verification tokens that do not resolve to a pending application', async () => {
+    const { service, manager, orgRepo } = setup();
+    manager.query.mockResolvedValue([]);
+    await expect(service.verify('v'.repeat(43))).rejects.toThrow('This organisation verification link is invalid or has expired.');
+    expect(orgRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('creates a pending-review organization only after representative email verification', async () => {
+    const { service, manager, appRepo, orgRepo } = setup();
+    manager.query.mockResolvedValue([{ id: application.id }]);
+    appRepo.findOneBy.mockResolvedValue({ ...application });
+    const result = await service.verify('v'.repeat(43));
+    expect(orgRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      displayName: 'Example Foundation',
+      status: 'pending_review',
+      createdByUserId: null,
+    }));
+    expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
+      organizationId: 'organization-1',
+      emailVerifiedAt: expect.any(Date),
+    }));
+    expect(result.organizationId).toBe('organization-1');
+  });
+
+  it('requires an active account with a verified matching representative email to claim an approved organization', async () => {
+    const { service, manager, appRepo, userRepo, orgRepo, membershipRepo } = setup();
+    manager.query.mockResolvedValue([{ id: application.id }]);
+    appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
+    userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'other@example.org', emailVerifiedAt: new Date() });
+    await expect(service.claim('organization-1', 'user-1')).rejects.toBeInstanceOf(ConflictException);
+    expect(orgRepo.findOneBy).not.toHaveBeenCalled();
+    expect(membershipRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('links the verified representative account as Organization Owner after platform approval', async () => {
+    const { service, manager, appRepo, userRepo, orgRepo, membershipRepo, membershipRoleRepo, auditRepo } = setup();
+    manager.query.mockResolvedValue([{ id: application.id }]);
+    appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
+    userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date() });
+    orgRepo.findOneBy.mockResolvedValue({ id: 'organization-1', status: 'active' });
+    membershipRepo.findOneBy.mockResolvedValue(null);
+    const result = await service.claim('organization-1', 'user-1');
+    expect(membershipRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: 'organization-1', userId: 'user-1', status: 'active',
+    }));
+    expect(membershipRoleRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      membershipId: 'membership-1', roleId: 'owner-role', assignedByUserId: null,
+    }));
+    expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      status: OrganizationOnboardingStatus.CLAIMED, claimedByUserId: 'user-1',
+    }));
+    expect(auditRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'organization.onboarding.claimed', actorUserId: 'user-1',
+    }));
+    expect(result.status).toBe('active');
+  });
+});
