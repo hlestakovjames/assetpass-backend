@@ -164,7 +164,7 @@ export class OrganizationOnboardingService {
         taxIdentifier: data.taxIdentifier,
         status: OrganizationStatus.PENDING_REVIEW,
         createdByUserId: null,
-      });
+      } as Partial<Organization>);
       application.emailVerifiedAt = new Date();
       application.organizationId = organization.id;
       application.status = OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW;
