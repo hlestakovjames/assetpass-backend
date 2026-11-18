@@ -48,6 +48,13 @@ export class IdentityResolutionService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async resolve(user: AuthenticatedIdentity, sessionId?: string) {
+    const resolvedSessionId = sessionId ?? user.sessionId;
+    const identity = {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      status: user.status,
+    };
     const [profile, platformRoleRows, organizationRows] = await Promise.all([
       this.dataSource.getRepository(UserProfile).findOneBy({ userId: user.id }),
       this.dataSource.query<PlatformRoleRow[]>(
@@ -193,10 +200,10 @@ export class IdentityResolutionService {
           ? availableWorkspaces.find((workspace) => workspace.type === 'individual')!
           : null;
 
-    const selectedRows = sessionId
+    const selectedRows = resolvedSessionId
       ? await this.dataSource.query<Array<{ context_type: string; context_id: string | null }>>(
           `SELECT context_type, context_id FROM auth_session_contexts WHERE session_id = $1 LIMIT 1`,
-          [sessionId],
+          [resolvedSessionId],
         )
       : [];
     const savedSelection = selectedRows[0];
@@ -208,7 +215,7 @@ export class IdentityResolutionService {
       : null;
 
     return {
-      ...user,
+      ...identity,
       profile: profile ? {
         firstName: profile.firstName,
         middleName: profile.middleName,
