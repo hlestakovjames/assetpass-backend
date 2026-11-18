@@ -129,12 +129,12 @@ describe('OrganizationOnboardingService', () => {
     expect(result.organizationId).toBe('organization-1');
   });
 
-  it('requires an active account with a verified matching representative email to claim an approved organization', async () => {
+  it('requires an active account with the matching representative email and valid claim code', async () => {
     const { service, manager, dataSource, appRepo, userRepo, orgRepo, membershipRepo } = setup();
     dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
     manager.query.mockResolvedValue([{ id: application.id }]);
     appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
-    userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'other@example.org', emailVerifiedAt: new Date() });
+    userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'other@example.org', emailVerifiedAt: null, status: 'active', approvalStatus: 'approved' });
     dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
     await expect(service.claimWithToken('user-1', 'c'.repeat(43))).rejects.toBeInstanceOf(ConflictException);
     expect(orgRepo.findOneBy).not.toHaveBeenCalled();
@@ -146,7 +146,7 @@ describe('OrganizationOnboardingService', () => {
     dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
     manager.query.mockResolvedValue([{ id: application.id }]);
     appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
-    userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date() });
+    userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'amina@example.org', emailVerifiedAt: null, status: 'active', approvalStatus: 'approved' });
     orgRepo.findOneBy.mockResolvedValue({ id: 'organization-1', status: 'active' });
     membershipRepo.findOneBy.mockResolvedValue(null);
     const result = await service.claimWithToken('user-1', 'c'.repeat(43));
