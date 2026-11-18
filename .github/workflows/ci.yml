@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/organization-identity-rbac
+      - development/architecture-alignment
   pull_request:
     branches:
       - main
@@ -33,3 +34,52 @@ jobs:
         run: npm run build
       - name: Run unit tests
         run: npm test -- --runInBand
+      - name: Run authentication regression tests
+        run: npm run test:e2e -- --runTestsByPath test/auth.e2e-spec.ts test/auth-jwt.e2e-spec.ts
+
+  migration-validation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: assetpass_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d assetpass_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/assetpass_ci
+      JWT_ACCESS_SECRET: ci-only-secret-for-migration-validation-that-is-at-least-64-characters-long
+      JWT_ACCESS_ISSUER: assetpass-api
+      JWT_ACCESS_AUDIENCE: assetpass-app
+      APP_ORIGIN: http://localhost:3000
+      DB_SSL: "false"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Show pending migrations
+        run: npm run migration:show
+      - name: Apply all migrations
+        run: npm run migration:run
+      - name: Verify applied migrations
+        run: npm run migration:show
+      - name: Verify latest migration rollback
+        run: npm run migration:revert
+      - name: Reapply latest migration
+        run: npm run migration:run
+      - name: Confirm migration state after reapply
+        run: npm run migration:show

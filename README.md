@@ -20,6 +20,7 @@ Do not treat every documented domain as an existing module or introduce microser
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
 - `audit`: platform audit records.
 - `health`: health endpoint.
+- `workspaces`: explicit Individual Workspace activation/deactivation lifecycle, persisted state, audit events and server-side active-workspace guard.
 - `database/migrations`: TypeORM migrations.
 - `test`: end-to-end test foundation.
 
@@ -69,15 +70,26 @@ npm run start:dev
 
 The API global prefix is `/api/v1`; the default local port is `3001`. The health endpoint is provided by the health module.
 
+### Individual Workspace lifecycle API
+
+- `POST /api/v1/workspaces/individual/activate` — activate or reactivate the authenticated user's Individual Workspace.
+- `POST /api/v1/workspaces/individual/deactivate` — deactivate the authenticated user's Individual Workspace without deleting its workspace record.
+
+Both operations require an authenticated session. The actor is derived from the validated JWT; the API does not accept a client-supplied user ID. Each transition is committed with an audit event. `GET /api/v1/auth/me` and the login identity response include only activated Individual Workspaces in `availableWorkspaces`; `defaultWorkspace` may now be `null`.
+
 ## Validation
 
 ```bash
 npm run build
 npm test -- --runInBand
-npm run test:e2e
+npm run test:e2e -- --runTestsByPath test/auth.e2e-spec.ts test/auth-jwt.e2e-spec.ts
 ```
 
-The repository includes a GitHub Actions workflow for build and unit-test validation. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+The GitHub Actions workflow validates the backend build, unit tests, the authentication HTTP/JWT regression suites, and all TypeORM migrations against a disposable PostgreSQL 16 service (including latest-migration rollback and reapply). The full end-to-end suite includes additional tests that may require a configured database. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+
+## Workspace lifecycle implementation note
+
+See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for the persistence model, endpoints, audit behavior and migration-before-deployment requirement.
 
 ## Critical implementation invariants
 
@@ -85,7 +97,7 @@ The repository includes a GitHub Actions workflow for build and unit-test valida
 - Do not infer authority from a client-supplied role, workspace ID or navigation state.
 - Preserve platform, organisation and individual authorization boundaries.
 - Organisation-first onboarding must use a constrained, attributable, time-bounded onboarding principal; do not create anonymous sensitive administration.
-- Account creation must remain separate from Individual Workspace activation.
+- Account creation must remain separate from Individual Workspace activation. Existing accounts are backfilled as active by the new migration to preserve their current access; accounts registered after the migration are not automatically given an Individual Workspace.
 - Asset identity, ownership, management authority, custody, assignment and location are distinct.
 - Preserve recipient acknowledgement and atomic completion of custody-changing asset transfers.
 - Marketplace commands must not directly mutate authoritative asset ownership/custody tables.
@@ -94,7 +106,7 @@ The repository includes a GitHub Actions workflow for build and unit-test valida
 
 ## Next alignment work
 
-1. Identity/account/workspace context and optional Individual Workspace activation.
+1. Complete and validate the additive Individual Workspace activation slice (migration `1794500000000-CreateIndividualWorkspaceActivation`).
 2. Organisation-first onboarding and later identity linking.
 3. Global Administrator role migration and platform-authority boundaries.
 4. Platform-managed asset taxonomy and expanded lifecycle APIs.
