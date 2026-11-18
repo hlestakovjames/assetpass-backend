@@ -186,7 +186,7 @@ export class OrganizationOnboardingService {
         { revokedAt: new Date() },
       );
       const sessionExpiresAt = new Date(Date.now() + ONBOARDING_SESSION_TTL_MS);
-      await sessionRepo.save(sessionRepo.create({
+      const onboardingSession = await sessionRepo.save(sessionRepo.create({
         applicationId: application.id,
         tokenHash: hashToken(sessionToken),
         scopes: ['application.read'],
@@ -194,6 +194,15 @@ export class OrganizationOnboardingService {
         expiresAt: sessionExpiresAt,
         revokedAt: null,
       }));
+      await manager.getRepository(PlatformAuditLog).save({
+        actorUserId: null,
+        action: 'organization.onboarding.session.issued',
+        entityType: 'organization_onboarding_session',
+        entityId: onboardingSession.id,
+        outcome: 'success',
+        reason: null,
+        metadata: { applicationId: application.id, scopes: ['application.read'], expiresAt: sessionExpiresAt },
+      });
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId: null,
         action: 'organization.onboarding.email.verified',
@@ -240,10 +249,21 @@ export class OrganizationOnboardingService {
   }
 
   async closeOnboardingSession(sessionId: string) {
-    await this.dataSource.getRepository(OrganizationOnboardingSession).update(
-      { id: sessionId, revokedAt: IsNull() },
-      { revokedAt: new Date() },
-    );
+    const sessions = this.dataSource.getRepository(OrganizationOnboardingSession);
+    const session = await sessions.findOneBy({ id: sessionId });
+    if (session && !session.revokedAt) {
+      session.revokedAt = new Date();
+      await sessions.save(session);
+      await this.dataSource.getRepository(PlatformAuditLog).save({
+        actorUserId: null,
+        action: 'organization.onboarding.session.closed',
+        entityType: 'organization_onboarding_session',
+        entityId: session.id,
+        outcome: 'success',
+        reason: null,
+        metadata: { applicationId: session.applicationId },
+      });
+    }
     return { closed: true };
   }
 
