@@ -29,7 +29,7 @@ async function bootstrap() {
     allowedHeaders: [
       'Content-Type',
       'Authorization',
-      'X-CSRF-Token',
+      'X-CSRF-Token',\n      'X-Organization-Onboarding-Session',
     ],
     maxAge: 600,
   });
