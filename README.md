@@ -87,6 +87,10 @@ npm run test:e2e
 
 The repository includes a GitHub Actions workflow for build and unit-test validation. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
 
+## Workspace lifecycle implementation note
+
+See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for the persistence model, endpoints, audit behavior and migration-before-deployment requirement.
+
 ## Critical implementation invariants
 
 - Resolve identity, active context, tenant and permissions on the server.
