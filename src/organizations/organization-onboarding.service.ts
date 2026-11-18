@@ -196,44 +196,81 @@ export class OrganizationOnboardingService {
     });
   }
 
-  async claimAvailable(userId: string) {
-    const user = await this.dataSource.getRepository(User).findOneBy({
-      id: userId,
-      status: UserStatus.ACTIVE,
-      approvalStatus: UserApprovalStatus.APPROVED,
+  async issueClaimInvitation(organizationId: string) {
+    const token = randomBytes(32).toString('base64url');
+    const application = await this.dataSource.transaction(async (manager) => {
+      const rows = await manager.query(
+        `SELECT application.id
+         FROM organization_onboarding_applications application
+         INNER JOIN organizations organization ON organization.id = application.organization_id
+         WHERE application.organization_id = $1
+           AND application.status = $2
+           AND organization.status = $3
+         FOR UPDATE OF application`,
+        [organizationId, OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, OrganizationStatus.ACTIVE],
+      ) as Array<{ id: string }>;
+      if (!rows.length) return null;
+      const repo = manager.getRepository(OrganizationOnboardingApplication);
+      const record = await repo.findOneBy({ id: rows[0].id });
+      if (!record) return null;
+      record.claimTokenHash = hashToken(token);
+      record.claimTokenIssuedAt = new Date();
+      record.claimTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await repo.save(record);
+      return record;
     });
-    if (!user || !user.emailVerifiedAt) {
-      throw new ConflictException('A verified email address is required to claim an organisation.');
+    if (!application) return { invitationIssued: false, emailSent: false };
+    try {
+      await this.email.sendOrganizationClaimInvitationEmail(
+        application.representativeEmail,
+        application.representativeFirstName,
+        String(application.organizationData.displayName ?? 'your organisation'),
+        token,
+      );
+      return { invitationIssued: true, emailSent: true };
+    } catch {
+      return { invitationIssued: true, emailSent: false };
     }
-    const candidates = await this.dataSource.query(
-      `SELECT application.organization_id AS "organizationId"
-       FROM organization_onboarding_applications application
-       INNER JOIN organizations organization ON organization.id = application.organization_id
-       WHERE LOWER(application.representative_email) = LOWER($1)
-         AND application.email_verified_at IS NOT NULL
-         AND application.status = $2
-         AND organization.status = $3
-       ORDER BY application.created_at ASC
-       LIMIT 2`,
-      [user.email, OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, OrganizationStatus.ACTIVE],
-    ) as Array<{ organizationId: string }>;
-    if (!candidates.length) throw new NotFoundException('No approved organisation application is available to claim for this verified email address.');
-    if (candidates.length > 1) throw new ConflictException('More than one approved organisation application matches this email. Contact AssetPass support to resolve the applications before claiming.');
-    return this.claim(candidates[0].organizationId, userId);
   }
 
-  async claim(organizationId: string, userId: string) {
+  async claimWithToken(userId: string, tokenInput: string) {
+    if (typeof tokenInput !== 'string' || tokenInput.length < 32 || tokenInput.length > 200) {
+      throw new BadRequestException('This organisation claim code is invalid or has expired.');
+    }
+    const rows = await this.dataSource.query(
+      `SELECT organization_id AS "organizationId"
+       FROM organization_onboarding_applications
+       WHERE claim_token_hash = $1
+         AND status = $2
+         AND claim_token_expires_at > NOW()
+       LIMIT 2`,
+      [hashToken(tokenInput), OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW],
+    ) as Array<{ organizationId: string }>;
+    if (rows.length !== 1) throw new BadRequestException('This organisation claim code is invalid or has expired.');
+    return this.claim(rows[0].organizationId, userId, tokenInput);
+  }
+
+  private async claim(organizationId: string, userId: string, token: string) {
     return this.dataSource.transaction(async (manager) => {
       const rows = await manager.query(
-        'SELECT id FROM organization_onboarding_applications WHERE organization_id = $1 AND status = $2 FOR UPDATE',
-        [organizationId, OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW],
+        `SELECT id FROM organization_onboarding_applications
+         WHERE organization_id = $1
+           AND status = $2
+           AND claim_token_hash = $3
+           AND claim_token_expires_at > NOW()
+         FOR UPDATE`,
+        [organizationId, OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, hashToken(token)],
       ) as Array<{ id: string }>;
-      if (!rows.length) throw new NotFoundException('An unclaimed organisation application was not found.');
+      if (!rows.length) throw new BadRequestException('This organisation claim code is invalid or has expired.');
       const applicationRepo = manager.getRepository(OrganizationOnboardingApplication);
       const application = await applicationRepo.findOneBy({ id: rows[0].id });
-      const user = await manager.getRepository(User).findOneBy({ id: userId, status: UserStatus.ACTIVE, approvalStatus: UserApprovalStatus.APPROVED });
-      if (!application || !user || !user.emailVerifiedAt || user.email.toLowerCase() !== application.representativeEmail) {
-        throw new ConflictException('Use an active AssetPass account with a verified email address matching the organisation representative email.');
+      const user = await manager.getRepository(User).findOneBy({
+        id: userId,
+        status: UserStatus.ACTIVE,
+        approvalStatus: UserApprovalStatus.APPROVED,
+      });
+      if (!application || !user || user.email.toLowerCase() !== application.representativeEmail) {
+        throw new ConflictException('Sign in with an active AssetPass account using the representative email address that received the claim invitation.');
       }
       const organization = await manager.getRepository(Organization).findOneBy({
         id: organizationId,
@@ -275,6 +312,8 @@ export class OrganizationOnboardingService {
       application.status = OrganizationOnboardingStatus.CLAIMED;
       application.claimedByUserId = userId;
       application.claimedAt = new Date();
+      application.claimTokenHash = null;
+      application.claimTokenExpiresAt = null;
       await applicationRepo.save(application);
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId: userId,
@@ -288,6 +327,7 @@ export class OrganizationOnboardingService {
       return { organizationId, membershipId: membership.id, status: OrganizationMembershipStatus.ACTIVE };
     });
   }
+
 }
 
 function validateApplication(input: OrganizationFirstApplicationInput) {
