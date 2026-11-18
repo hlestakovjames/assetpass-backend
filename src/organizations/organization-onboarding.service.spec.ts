@@ -4,7 +4,7 @@ import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { OrganizationRole } from '../access-control/entities/organization-role.entity';
 import { OrganizationMembershipRole } from '../access-control/entities/organization-membership-role.entity';
 import { User } from '../identity/entities/user.entity';
-import { Organization } from './entities/organization.entity';
+import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership } from './entities/organization-membership.entity';
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
 import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
@@ -173,6 +173,40 @@ describe('OrganizationOnboardingService', () => {
     }));
     expect(result.status).toBe('active');
   });
+  it('returns only the application details needed by its restricted representative session', async () => {
+    const { service, appRepo, orgRepo } = setup();
+    appRepo.findOneBy.mockResolvedValue({
+      ...application,
+      status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
+      organizationId: 'organization-1',
+    });
+    orgRepo.findOneBy.mockResolvedValue({
+      id: 'organization-1',
+      displayName: 'Example Foundation',
+      status: OrganizationStatus.PENDING_REVIEW,
+      decisionNote: null,
+    });
+    const result = await service.getOnboardingSession('application-1');
+    expect(result).toEqual(expect.objectContaining({
+      applicationId: 'application-1',
+      status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
+      representative: { firstName: 'Amina', lastName: 'Director', email: 'amina@example.org' },
+      organization: expect.objectContaining({ id: 'organization-1', displayName: 'Example Foundation' }),
+    }));
+    expect(result).not.toHaveProperty('organizationData');
+    expect(result).not.toHaveProperty('verificationTokenHash');
+    expect(result).not.toHaveProperty('claimTokenHash');
+  });
+
+  it('closes a restricted onboarding session without affecting an AssetPass account', async () => {
+    const { service, sessionRepo } = setup();
+    await expect(service.closeOnboardingSession('session-1')).resolves.toEqual({ closed: true });
+    expect(sessionRepo.update).toHaveBeenCalledWith(
+      { id: 'session-1', revokedAt: expect.anything() },
+      { revokedAt: expect.any(Date) },
+    );
+  });
+
   it('issues a one-time claim invitation only for an approved organisation application', async () => {
     const { service, manager, appRepo, email } = setup();
     manager.query.mockResolvedValue([{ id: application.id }]);
