@@ -20,7 +20,7 @@ Do not treat every documented domain as an existing module or introduce microser
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
 - `audit`: platform audit records.
 - `health`: health endpoint.
-- `workspaces`: explicit Individual Workspace activation/deactivation lifecycle, persisted state and audit events.
+- `workspaces`: explicit Individual Workspace activation/deactivation lifecycle, persisted state, audit events and server-side active-workspace guard.
 - `database/migrations`: TypeORM migrations.
 - `test`: end-to-end test foundation.
 
