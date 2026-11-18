@@ -31,7 +31,6 @@ export class IndividualWorkspace {
     type: 'enum',
     enum: IndividualWorkspaceStatus,
     enumName: 'individual_workspace_status',
-    default: IndividualWorkspaceStatus.ACTIVE,
   })
   status: IndividualWorkspaceStatus;
 
