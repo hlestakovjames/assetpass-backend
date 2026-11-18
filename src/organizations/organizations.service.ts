@@ -343,12 +343,13 @@ export class OrganizationsService {
           { organizationId: id },
           { status: OrganizationOnboardingStatus.REJECTED },
         );
-        await manager.getRepository(OrganizationOnboardingSession).createQueryBuilder()
-          .update(OrganizationOnboardingSession)
-          .set({ revokedAt: new Date() })
-          .where('"application_id" IN (SELECT id FROM organization_onboarding_applications WHERE organization_id = :organizationId)', { organizationId: id })
-          .andWhere('"revoked_at" IS NULL')
-          .execute();
+        const onboardingApplication = await manager.getRepository(OrganizationOnboardingApplication).findOneBy({ organizationId: id });
+        if (onboardingApplication) {
+          await manager.getRepository(OrganizationOnboardingSession).update(
+            { applicationId: onboardingApplication.id, revokedAt: IsNull() },
+            { revokedAt: new Date() },
+          );
+        }
       }
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId, action: 'organization.status.changed', entityType: 'organization', entityId: id,
