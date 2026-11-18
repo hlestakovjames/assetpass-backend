@@ -186,9 +186,8 @@ export class IdentityResolutionService {
       : activeOrganization
         ? {
             type: 'organization' as const,
-            id: activeOrganization.id,
-            label: activeOrganization.displayName,
-            href: `/organization/${activeOrganization.id}`,
+            label: 'Your organizations',
+            href: '/organization/overview',
           }
         : individualWorkspace
           ? availableWorkspaces.find((workspace) => workspace.type === 'individual')!
