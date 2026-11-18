@@ -156,4 +156,42 @@ describe('IdentityResolutionService', () => {
     expect(result.availableWorkspaces).toEqual([]);
     expect(result.defaultWorkspace).toBeNull();
   });
+  it('restores a saved session context only when it remains currently available', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'individual-1', status: 'active' }])
+      .mockResolvedValueOnce([{ context_type: 'individual', context_id: 'individual-1' }]);
+
+    const result = await service.resolve(user, 'session-1');
+
+    expect(result.selectedWorkspace).toEqual({
+      type: 'individual',
+      id: 'individual-1',
+      label: 'Individual workspace',
+      href: '/individual/overview',
+    });
+    expect(result.defaultWorkspace).toEqual(result.selectedWorkspace);
+    expect(result).not.toHaveProperty('sessionId');
+    expect(query).toHaveBeenLastCalledWith(
+      expect.stringContaining('FROM auth_session_contexts'),
+      ['session-1'],
+    );
+  });
+
+  it('ignores a saved context after its workspace is no longer available', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ context_type: 'individual', context_id: 'inactive-workspace' }]);
+
+    const result = await service.resolve(user, 'session-1');
+
+    expect(result.selectedWorkspace).toBeNull();
+    expect(result.defaultWorkspace).toBeNull();
+  });
+
 });
