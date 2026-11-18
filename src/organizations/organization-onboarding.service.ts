@@ -69,6 +69,8 @@ export class OrganizationOnboardingService {
         representativePosition: data.representativePosition,
         registrationRelationship: data.registrationRelationship,
         authorityConfirmedAt: new Date(),
+        privacyNoticeAcknowledgedAt: new Date(),
+        privacyNoticeVersion: '2026-11-09',
         organizationData: data.organizationData,
         verificationTokenHash: hashToken(token),
         verificationExpiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
