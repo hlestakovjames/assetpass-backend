@@ -351,6 +351,15 @@ export class OrganizationsService {
           );
         }
       }
+      if (status === OrganizationStatus.SUSPENDED) {
+        const onboardingApplication = await manager.getRepository(OrganizationOnboardingApplication).findOneBy({ organizationId: id });
+        if (onboardingApplication) {
+          await manager.getRepository(OrganizationOnboardingSession).update(
+            { applicationId: onboardingApplication.id, revokedAt: IsNull() },
+            { revokedAt: new Date() },
+          );
+        }
+      }
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId, action: 'organization.status.changed', entityType: 'organization', entityId: id,
         outcome: 'success', reason: note?.trim() || null, metadata: { previousStatus, newStatus: status },
