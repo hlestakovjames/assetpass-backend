@@ -59,6 +59,8 @@ describe('OrganizationOnboardingService', () => {
       getRepository: jest.fn((entity: unknown) => repos.get(entity)),
     };
     const dataSource = {
+      getRepository: jest.fn((entity: unknown) => repos.get(entity)),
+      query: jest.fn(),
       transaction: jest.fn(async (callback: (value: EntityManager) => unknown) => callback(manager as unknown as EntityManager)),
     };
     const email = { sendOrganizationOnboardingVerificationEmail: jest.fn().mockResolvedValue(undefined) };
@@ -157,4 +159,34 @@ describe('OrganizationOnboardingService', () => {
     }));
     expect(result.status).toBe('active');
   });
+  it('claims the only approved application matching the verified account email', async () => {
+    const { service, dataSource, userRepo } = setup();
+    userRepo.findOneBy.mockResolvedValue({
+      id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date(),
+      status: 'active', approvalStatus: 'approved',
+    });
+    dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
+    const claim = jest.spyOn(service, 'claim').mockResolvedValue({
+      organizationId: 'organization-1', membershipId: 'membership-1', status: 'active',
+    });
+    const result = await service.claimAvailable('user-1');
+    expect(claim).toHaveBeenCalledWith('organization-1', 'user-1');
+    expect(result.organizationId).toBe('organization-1');
+  });
+
+  it('rejects ambiguous approved applications for the same representative email', async () => {
+    const { service, dataSource, userRepo } = setup();
+    userRepo.findOneBy.mockResolvedValue({
+      id: 'user-1', email: 'amina@example.org', emailVerifiedAt: new Date(),
+      status: 'active', approvalStatus: 'approved',
+    });
+    dataSource.query.mockResolvedValue([
+      { organizationId: 'organization-1' },
+      { organizationId: 'organization-2' },
+    ]);
+    await expect(service.claimAvailable('user-1')).rejects.toThrow(
+      'More than one approved organisation application matches this email.',
+    );
+  });
+
 });
