@@ -77,6 +77,9 @@ export class RegistrationService {
     if (accountType !== 'individual' && accountType !== 'organization') {
       throw new BadRequestException('Choose an individual or organization account.');
     }
+    if (accountType === 'organization') {
+      throw new BadRequestException('Organisation applications must use the organisation-first onboarding process. No personal account is created during organisation application.');
+    }
 
     const email = normalizeEmail(input.email);
     const password = input.password;
