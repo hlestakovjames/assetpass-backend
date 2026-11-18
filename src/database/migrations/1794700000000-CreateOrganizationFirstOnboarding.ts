@@ -34,6 +34,5 @@ export class CreateOrganizationFirstOnboarding1794700000000 implements Migration
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('DROP TABLE "organization_onboarding_applications"');
-    await queryRunner.query('ALTER TABLE "organizations" ALTER COLUMN "created_by_user_id" SET NOT NULL');
   }
 }
