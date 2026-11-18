@@ -47,9 +47,11 @@ describe('OrganizationOnboardingService', () => {
     const membershipRoleRepo = { save: jest.fn(), delete: jest.fn() };
     const roleRepo = { findOne: jest.fn().mockResolvedValue({ id: 'owner-role' }) };
     const userRepo = { findOneBy: jest.fn() };
-    const auditRepo = { save: jest.fn() };\n    const sessionRepo = { save: jest.fn(async (value) => value), update: jest.fn() };
+    const auditRepo = { save: jest.fn() };
+    const sessionRepo = { save: jest.fn(async (value) => value), update: jest.fn() };
     const repos = new Map<unknown, unknown>([
-      [OrganizationOnboardingApplication, appRepo],\n      [OrganizationOnboardingSession, sessionRepo],
+      [OrganizationOnboardingApplication, appRepo],
+      [OrganizationOnboardingSession, sessionRepo],
       [Organization, orgRepo],
       [OrganizationMembership, membershipRepo],
       [OrganizationMembershipRole, membershipRoleRepo],
@@ -127,7 +129,13 @@ describe('OrganizationOnboardingService', () => {
       organizationId: 'organization-1',
       emailVerifiedAt: expect.any(Date),
     }));
-    expect(result.organizationId).toBe('organization-1');\n    expect(result.onboardingSessionToken).toEqual(expect.any(String));\n    expect(result.onboardingSessionExpiresAt).toEqual(expect.any(Date));\n    expect(sessionRepo.save).toHaveBeenCalledWith(expect.objectContaining({\n      applicationId: 'application-1', tokenHash: expect.any(String), scopes: ['application.read'],\n      expiresAt: expect.any(Date), revokedAt: null,\n    }));
+    expect(result.organizationId).toBe('organization-1');
+    expect(result.onboardingSessionToken).toEqual(expect.any(String));
+    expect(result.onboardingSessionExpiresAt).toEqual(expect.any(Date));
+    expect(sessionRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      applicationId: 'application-1', tokenHash: expect.any(String), scopes: ['application.read'],
+      expiresAt: expect.any(Date), revokedAt: null,
+    }));
   });
 
   it('requires an active account with the matching representative email and valid claim code', async () => {
