@@ -20,7 +20,7 @@ Do not treat every documented domain as an existing module or introduce microser
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
 - `audit`: platform audit records.
 - `health`: health endpoint.
-- `workspaces`: explicit Individual Workspace activation/deactivation lifecycle, persisted state, audit events and server-side active-workspace guard.
+- `workspaces`: explicit Individual Workspace activation/deactivation lifecycle, session-scoped workspace context selection, persisted state, audit events and server-side active-workspace guard.
 - `database/migrations`: TypeORM migrations.
 - `test`: end-to-end test foundation.
 
@@ -70,7 +70,7 @@ npm run start:dev
 
 The API global prefix is `/api/v1`; the default local port is `3001`. The health endpoint is provided by the health module.
 
-### Individual Workspace lifecycle API
+### Workspace context selection API\n\n- `POST /api/v1/workspaces/context/select` — select an authorised platform, Individual Workspace or organisation context for the current authenticated session. The request accepts `contextType` and `contextId` (null only for platform context). The backend verifies current authority and records an audit event. Selection follows refresh-token rotation within the same session family; separate login sessions remain independent.\n\n### Individual Workspace lifecycle API
 
 - `POST /api/v1/workspaces/individual/activate` — activate or reactivate the authenticated user's Individual Workspace.
 - `POST /api/v1/workspaces/individual/deactivate` — deactivate the authenticated user's Individual Workspace without deleting its workspace record.
