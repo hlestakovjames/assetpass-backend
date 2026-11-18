@@ -26,7 +26,7 @@ describe('IdentityResolutionService', () => {
     service = new IdentityResolutionService(dataSource as unknown as DataSource);
   });
 
-  it('resolves organization memberships, roles, permissions and organization landing route', async () => {
+  it('resolves an active organization and an activated Individual Workspace', async () => {
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -74,8 +74,9 @@ describe('IdentityResolutionService', () => {
     });
     expect(result.defaultWorkspace).toEqual({
       type: 'organization',
-      label: 'Your organizations',
-      href: '/organization/overview',
+      id: 'organization-1',
+      label: 'Example Organization',
+      href: '/organization/organization-1',
     });
     expect(result.availableWorkspaces.map((workspace) => workspace.type)).toEqual([
       'individual',
@@ -129,6 +130,7 @@ describe('IdentityResolutionService', () => {
           permission_key: null,
         },
       ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
     const result = await service.resolve(user);
@@ -142,8 +144,6 @@ describe('IdentityResolutionService', () => {
     expect(result.defaultWorkspace).toBeNull();
     expect(result.availableWorkspaces).toEqual([]);
   });
-});
-
 
   it('does not invent an Individual Workspace for an account without an activated workspace', async () => {
     query
@@ -157,3 +157,4 @@ describe('IdentityResolutionService', () => {
     expect(result.availableWorkspaces).toEqual([]);
     expect(result.defaultWorkspace).toBeNull();
   });
+});
