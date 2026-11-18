@@ -9,9 +9,11 @@ import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
+import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 import { EmailDeliveryService } from '../auth/email-delivery.service';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const ONBOARDING_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const GENERIC_RESEND_MESSAGE = 'If a pending organisation application exists for that representative email, a verification link will be sent.';
 
 export interface OrganizationFirstApplicationInput {
@@ -177,6 +179,20 @@ export class OrganizationOnboardingService {
       application.status = OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW;
       application.verificationTokenHash = hashToken(randomBytes(32).toString('base64url'));
       await applicationRepo.save(application);
+      const sessionRepo = manager.getRepository(OrganizationOnboardingSession);
+      await sessionRepo.update(
+        { applicationId: application.id, revokedAt: IsNull() },
+        { revokedAt: new Date() },
+      );
+      const sessionExpiresAt = new Date(Date.now() + ONBOARDING_SESSION_TTL_MS);
+      await sessionRepo.save(sessionRepo.create({
+        applicationId: application.id,
+        tokenHash: hashToken(sessionToken),
+        scopes: ['application.read'],
+        lastSeenAt: new Date(),
+        expiresAt: sessionExpiresAt,
+        revokedAt: null,
+      }));
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId: null,
         action: 'organization.onboarding.email.verified',
@@ -194,6 +210,39 @@ export class OrganizationOnboardingService {
         message: 'Representative email verified. The organisation application has been submitted for platform review.',
       };
     });
+  }
+
+  async getOnboardingSession(applicationId: string) {
+    const application = await this.applications.findOneBy({ id: applicationId });
+    if (!application) throw new NotFoundException('Organisation onboarding application not found.');
+    const organization = application.organizationId
+      ? await this.dataSource.getRepository(Organization).findOneBy({ id: application.organizationId })
+      : null;
+    return {
+      applicationId: application.id,
+      status: application.status,
+      representative: {
+        firstName: application.representativeFirstName,
+        lastName: application.representativeLastName,
+        email: application.representativeEmail,
+      },
+      organization: organization ? {
+        id: organization.id,
+        displayName: organization.displayName,
+        status: organization.status,
+        decisionNote: organization.decisionNote,
+      } : null,
+      submittedAt: application.emailVerifiedAt,
+      updatedAt: application.updatedAt,
+    };
+  }
+
+  async closeOnboardingSession(sessionId: string) {
+    await this.dataSource.getRepository(OrganizationOnboardingSession).update(
+      { id: sessionId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+    return { closed: true };
   }
 
   async issueClaimInvitation(organizationId: string, actorUserId: string) {
