@@ -4,6 +4,7 @@ export enum OrganizationOnboardingStatus {
   PENDING_EMAIL_VERIFICATION = 'pending_email_verification',
   SUBMITTED_FOR_REVIEW = 'submitted_for_review',
   CLAIMED = 'claimed',
+  REJECTED = 'rejected',
 }
 
 @Entity('organization_onboarding_applications')
@@ -17,6 +18,8 @@ export class OrganizationOnboardingApplication {
   @Column({ name: 'representative_position', type: 'varchar', length: 160 }) representativePosition: string;
   @Column({ name: 'registration_relationship', type: 'varchar', length: 120 }) registrationRelationship: string;
   @Column({ name: 'authority_confirmed_at', type: 'timestamptz' }) authorityConfirmedAt: Date;
+  @Column({ name: 'privacy_notice_acknowledged_at', type: 'timestamptz' }) privacyNoticeAcknowledgedAt: Date;
+  @Column({ name: 'privacy_notice_version', type: 'varchar', length: 40 }) privacyNoticeVersion: string;
   @Column({ name: 'organization_data', type: 'jsonb' }) organizationData: Record<string, unknown>;
   @Column({ name: 'verification_token_hash', type: 'varchar', length: 64 }) verificationTokenHash: string;
   @Column({ name: 'verification_expires_at', type: 'timestamptz' }) verificationExpiresAt: Date;
