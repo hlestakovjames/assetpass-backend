@@ -82,10 +82,10 @@ Both operations require an authenticated session. The actor is derived from the 
 ```bash
 npm run build
 npm test -- --runInBand
-npm run test:e2e -- --runTestsByPath test/auth.e2e-spec.ts test/auth-jwt.e2e-spec.ts
+npm run test:e2e
 ```
 
-The GitHub Actions workflow validates the backend build, unit tests, the authentication HTTP/JWT regression suites, and all TypeORM migrations against a disposable PostgreSQL 16 service (including latest-migration rollback and reapply). The full end-to-end suite includes additional tests that may require a configured database. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+The GitHub Actions workflow validates the backend build, unit tests, the complete end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services (including latest-migration rollback and reapply). Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
 
 ## Workspace lifecycle implementation note
 
