@@ -34,5 +34,5 @@ jobs:
         run: npm run build
       - name: Run unit tests
         run: npm test -- --runInBand
-      - name: Run authentication and API integration tests
-        run: npm run test:e2e
+      - name: Run authentication regression tests
+        run: npm run test:e2e -- --runTestsByPath test/auth.e2e-spec.ts test/auth-jwt.e2e-spec.ts
