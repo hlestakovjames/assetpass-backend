@@ -130,7 +130,8 @@ describe('OrganizationOnboardingService', () => {
   });
 
   it('requires an active account with a verified matching representative email to claim an approved organization', async () => {
-    const { service, manager, appRepo, userRepo, orgRepo, membershipRepo } = setup();
+    const { service, manager, dataSource, appRepo, userRepo, orgRepo, membershipRepo } = setup();
+    dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
     manager.query.mockResolvedValue([{ id: application.id }]);
     appRepo.findOneBy.mockResolvedValue({ ...application, status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, organizationId: 'organization-1', emailVerifiedAt: new Date() });
     userRepo.findOneBy.mockResolvedValue({ id: 'user-1', email: 'other@example.org', emailVerifiedAt: new Date() });
