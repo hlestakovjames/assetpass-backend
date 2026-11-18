@@ -136,6 +136,7 @@ export class OrganizationOnboardingService {
     if (typeof tokenInput !== 'string' || tokenInput.length < 32 || tokenInput.length > 200) {
       throw new BadRequestException('This organisation verification link is invalid or has expired.');
     }
+    const sessionToken = randomBytes(32).toString('base64url');
     return this.dataSource.transaction(async (manager) => {
       const rows = await manager.query(
         'SELECT id FROM organization_onboarding_applications WHERE verification_token_hash = $1 AND status = $2 AND verification_expires_at > NOW() FOR UPDATE',
@@ -207,6 +208,8 @@ export class OrganizationOnboardingService {
         organizationId: organization.id,
         status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
         organizationStatus: organization.status,
+        onboardingSessionToken: sessionToken,
+        onboardingSessionExpiresAt: sessionExpiresAt,
         message: 'Representative email verified. The organisation application has been submitted for platform review.',
       };
     });
