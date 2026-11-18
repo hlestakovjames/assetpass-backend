@@ -189,6 +189,32 @@ export class OrganizationOnboardingService {
     });
   }
 
+  async claimAvailable(userId: string) {
+    const user = await this.dataSource.getRepository(User).findOneBy({
+      id: userId,
+      status: UserStatus.ACTIVE,
+      approvalStatus: UserApprovalStatus.APPROVED,
+    });
+    if (!user || !user.emailVerifiedAt) {
+      throw new ConflictException('A verified email address is required to claim an organisation.');
+    }
+    const candidates = await this.dataSource.query(
+      `SELECT application.organization_id AS "organizationId"
+       FROM organization_onboarding_applications application
+       INNER JOIN organizations organization ON organization.id = application.organization_id
+       WHERE LOWER(application.representative_email) = LOWER($1)
+         AND application.email_verified_at IS NOT NULL
+         AND application.status = $2
+         AND organization.status = $3
+       ORDER BY application.created_at ASC
+       LIMIT 2`,
+      [user.email, OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW, OrganizationStatus.ACTIVE],
+    ) as Array<{ organizationId: string }>;
+    if (!candidates.length) throw new NotFoundException('No approved organisation application is available to claim for this verified email address.');
+    if (candidates.length > 1) throw new ConflictException('More than one approved organisation application matches this email. Contact AssetPass support to resolve the applications before claiming.');
+    return this.claim(candidates[0].organizationId, userId);
+  }
+
   async claim(organizationId: string, userId: string) {
     return this.dataSource.transaction(async (manager) => {
       const rows = await manager.query(
