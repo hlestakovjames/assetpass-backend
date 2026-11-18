@@ -74,9 +74,8 @@ describe('IdentityResolutionService', () => {
     });
     expect(result.defaultWorkspace).toEqual({
       type: 'organization',
-      id: 'organization-1',
-      label: 'Example Organization',
-      href: '/organization/organization-1',
+      label: 'Your organizations',
+      href: '/organization/overview',
     });
     expect(result.availableWorkspaces.map((workspace) => workspace.type)).toEqual([
       'individual',
