@@ -70,7 +70,11 @@ npm run start:dev
 
 The API global prefix is `/api/v1`; the default local port is `3001`. The health endpoint is provided by the health module.
 
-### Workspace context selection API\n\n- `POST /api/v1/workspaces/context/select` — select an authorised platform, Individual Workspace or organisation context for the current authenticated session. The request accepts `contextType` and `contextId` (null only for platform context). The backend verifies current authority and records an audit event. Selection follows refresh-token rotation within the same session family; separate login sessions remain independent.\n\n### Individual Workspace lifecycle API
+### Workspace context selection API
+
+- `POST /api/v1/workspaces/context/select` — select an authorised platform, Individual Workspace or organisation context for the current authenticated session. The request accepts `contextType` and `contextId` (null only for platform context). The backend verifies current authority and records an audit event. Selection follows refresh-token rotation within the same session family; separate login sessions remain independent.
+
+### Individual Workspace lifecycle API
 
 - `POST /api/v1/workspaces/individual/activate` — activate or reactivate the authenticated user's Individual Workspace.
 - `POST /api/v1/workspaces/individual/deactivate` — deactivate the authenticated user's Individual Workspace without deleting its workspace record.
@@ -125,7 +129,7 @@ Organisation registration is now a separate lifecycle; `POST /api/v1/auth/regist
 - `POST /api/v1/organizations/onboarding/applications` — public, browser-origin guarded application submission. Does not create a personal account.
 - `POST /api/v1/organizations/onboarding/resend-verification` — generic-response verification resend.
 - `POST /api/v1/organizations/onboarding/verify-email` — consumes a hashed, single-use 24-hour representative email token and creates an organisation in `pending_review`.
-- Existing `/api/v1/platform/organizations/:id/status` review controls approve/reject the organisation.
+- Existing `/api/v1/platform/organizations/:id/status` review controls approve/reject the organisation. Approval issues a single-use claim invitation and records the reviewer/audit event; the response reports whether email delivery succeeded.
 - `POST /api/v1/organizations/onboarding/claim` — authenticated verified representative claims an active approved organisation. The service creates the active membership and assigns `organization_owner`.
 
 Migration: `1794700000000-CreateOrganizationFirstOnboarding`. It adds `organization_onboarding_applications` and makes `organizations.created_by_user_id` nullable. Apply after migrations `1794500000000` and `1794600000000`.
