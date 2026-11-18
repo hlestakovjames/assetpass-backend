@@ -10,6 +10,7 @@ import { User, UserStatus } from '../identity/entities/user.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership, OrganizationMembershipStatus } from './entities/organization-membership.entity';
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
+import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 
 export interface RegisterOrganizationInput {
   displayName: string; legalName?: string; category: string; registrationNumber?: string;
@@ -342,6 +343,12 @@ export class OrganizationsService {
           { organizationId: id },
           { status: OrganizationOnboardingStatus.REJECTED },
         );
+        await manager.getRepository(OrganizationOnboardingSession).createQueryBuilder()
+          .update(OrganizationOnboardingSession)
+          .set({ revokedAt: new Date() })
+          .where('"application_id" IN (SELECT id FROM organization_onboarding_applications WHERE organization_id = :organizationId)', { organizationId: id })
+          .andWhere('"revoked_at" IS NULL')
+          .execute();
       }
       await manager.getRepository(PlatformAuditLog).save({
         actorUserId, action: 'organization.status.changed', entityType: 'organization', entityId: id,
