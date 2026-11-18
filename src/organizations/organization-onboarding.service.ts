@@ -196,7 +196,7 @@ export class OrganizationOnboardingService {
     });
   }
 
-  async issueClaimInvitation(organizationId: string) {
+  async issueClaimInvitation(organizationId: string, actorUserId: string) {
     const token = randomBytes(32).toString('base64url');
     const application = await this.dataSource.transaction(async (manager) => {
       const rows = await manager.query(
@@ -217,6 +217,15 @@ export class OrganizationOnboardingService {
       record.claimTokenIssuedAt = new Date();
       record.claimTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await repo.save(record);
+      await manager.getRepository(PlatformAuditLog).save({
+        actorUserId,
+        action: 'organization.onboarding.claim_invitation.issued',
+        entityType: 'organization_onboarding_application',
+        entityId: record.id,
+        outcome: 'success',
+        reason: null,
+        metadata: { organizationId, expiresAt: record.claimTokenExpiresAt },
+      });
       return record;
     });
     if (!application) return { invitationIssued: false, emailSent: false };
