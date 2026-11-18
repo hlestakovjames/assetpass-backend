@@ -131,7 +131,7 @@ Organisation registration is now a separate lifecycle; `POST /api/v1/auth/regist
 - `POST /api/v1/organizations/onboarding/resend-verification` — generic-response verification resend.
 - `POST /api/v1/organizations/onboarding/verify-email` — consumes a hashed, single-use 24-hour representative email token, creates an organisation in `pending_review` and returns a separate restricted session token once.
 - Existing `/api/v1/platform/organizations/:id/status` review controls approve/reject the organisation. Approval issues a single-use claim invitation and records the reviewer/audit event; the response reports whether email delivery succeeded.
-- `POST /api/v1/organizations/onboarding/session` (GET) — returns only the application associated with the restricted session; `POST /session/close` revokes it. The session uses `X-Organization-Onboarding-Session`, is hash-stored, read-only, two-hour absolute and 30-minute idle.
+- `GET /api/v1/organizations/onboarding/session` — returns only the application associated with the restricted session; `POST /api/v1/organizations/onboarding/session/close` revokes it. The session uses `X-Organization-Onboarding-Session`, is hash-stored, read-only, two-hour absolute and 30-minute idle.
 
 - `POST /api/v1/organizations/onboarding/claim` — authenticated representative submits the seven-day one-time claim code; successful claim creates the active membership, assigns `organization_owner` and revokes outstanding onboarding sessions.\n\nMigrations: `1794700000000-CreateOrganizationFirstOnboarding` and `1794800000000-CreateOrganizationOnboardingSessions`. Apply after migrations `1794500000000` and `1794600000000`.
 
