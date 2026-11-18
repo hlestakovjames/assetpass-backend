@@ -6,6 +6,7 @@ import { AuthenticatedIdentity } from './auth.service';
 
 type PlatformRoleRow = { role: string };
 type PermissionRow = { key: string };
+type IndividualWorkspaceRow = { id: string; status: string };
 type OrganizationRow = {
   membership_id: string;
   membership_status: string;
@@ -104,6 +105,15 @@ export class IdentityResolutionService {
           [user.id],
         );
 
+    const individualWorkspaceRows = await this.dataSource.query<IndividualWorkspaceRow[]>(
+      `SELECT id, status
+       FROM individual_workspaces
+       WHERE user_id = $1 AND status = 'active'
+       LIMIT 1`,
+      [user.id],
+    );
+    const individualWorkspace = individualWorkspaceRows[0] ?? null;
+
     const organizationsById = new Map<string, ResolvedOrganizationIdentity>();
     for (const row of organizationRows) {
       let organization = organizationsById.get(row.organization_id);
@@ -135,9 +145,16 @@ export class IdentityResolutionService {
     }
 
     const organizations = [...organizationsById.values()];
-    const availableWorkspaces: ResolvedWorkspace[] = [
-      { type: 'individual', label: 'Individual workspace', href: '/individual/overview' },
-    ];
+    const availableWorkspaces: ResolvedWorkspace[] = [];
+
+    if (individualWorkspace) {
+      availableWorkspaces.push({
+        type: 'individual',
+        id: individualWorkspace.id,
+        label: 'Individual workspace',
+        href: '/individual/overview',
+      });
+    }
 
     if (platformRoles.length) {
       availableWorkspaces.unshift({
@@ -159,16 +176,23 @@ export class IdentityResolutionService {
       }
     }
 
-    const hasOrganizationContext = organizations.some((organization) =>
-      organization.membership.status === 'pending' ||
-      (organization.membership.status === 'active' && organization.status === 'active'),
+    const activeOrganization = organizations.find((organization) =>
+      organization.status === 'active' &&
+      organization.membership.status === 'active',
     );
 
     const defaultWorkspace = platformRoles.length
       ? availableWorkspaces.find((workspace) => workspace.type === 'platform')!
-      : hasOrganizationContext
-        ? { type: 'organization' as const, label: 'Your organizations', href: '/organization/overview' }
-        : availableWorkspaces[0];
+      : activeOrganization
+        ? {
+            type: 'organization' as const,
+            id: activeOrganization.id,
+            label: activeOrganization.displayName,
+            href: `/organization/${activeOrganization.id}`,
+          }
+        : individualWorkspace
+          ? availableWorkspaces.find((workspace) => workspace.type === 'individual')!
+          : null;
 
     return {
       ...user,
