@@ -48,7 +48,7 @@ describe('OrganizationOnboardingService', () => {
     const roleRepo = { findOne: jest.fn().mockResolvedValue({ id: 'owner-role' }) };
     const userRepo = { findOneBy: jest.fn() };
     const auditRepo = { save: jest.fn() };
-    const sessionRepo = { save: jest.fn(async (value) => value), update: jest.fn() };
+    const sessionRepo = { create: jest.fn((value) => value), save: jest.fn(async (value) => value), update: jest.fn() };
     const repos = new Map<unknown, unknown>([
       [OrganizationOnboardingApplication, appRepo],
       [OrganizationOnboardingSession, sessionRepo],
