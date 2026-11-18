@@ -23,7 +23,7 @@ export class PlatformOrganizationsController {
   review(@Param('id') id: string, @Req() request: AuthenticatedRequest, @Body() body: { status: OrganizationStatus; note?: string }) {
     return this.service.review(id, request.user.id, body.status, body.note).then(async (organization) => {
       if (organization.status === OrganizationStatus.ACTIVE) {
-        const claimInvitation = await this.onboarding.issueClaimInvitation(id);
+        const claimInvitation = await this.onboarding.issueClaimInvitation(id, request.user.id);
         return { ...organization, claimInvitation };
       }
       return organization;
