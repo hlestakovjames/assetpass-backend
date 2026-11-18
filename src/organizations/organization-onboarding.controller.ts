@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { BrowserOriginGuard } from '../auth/guards/browser-origin.guard';
@@ -29,6 +29,8 @@ export class OrganizationOnboardingController {
   }
 
   @Post('verify-email')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
   @HttpCode(HttpStatus.OK)
   @UseGuards(BrowserOriginGuard)
   verify(@Body() body: { token: string }) {
@@ -43,6 +45,7 @@ export class OrganizationOnboardingController {
   }
 
   @Get('session')
+  @Header('Cache-Control', 'no-store')
   @UseGuards(OrganizationOnboardingSessionGuard)
   session(@Req() request: OnboardingSessionRequest) {
     return this.service.getOnboardingSession(request.organizationOnboarding.applicationId);
