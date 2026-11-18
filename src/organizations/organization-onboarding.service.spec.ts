@@ -79,6 +79,7 @@ describe('OrganizationOnboardingService', () => {
       representativePosition: 'Director',
       registrationRelationship: 'Director',
       authorityConfirmation: 'yes',
+      privacyNoticeAcknowledged: true,
       organizationDisplayName: 'Example Foundation',
       organizationType: 'NGO',
       contactEmail: 'info@example.org',
