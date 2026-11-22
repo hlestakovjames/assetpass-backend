@@ -10,6 +10,8 @@ The backend is the authoritative service boundary for AssetPass. It currently fo
 
 Do not treat every documented domain as an existing module or introduce microservices simply to mirror the domain catalogue. Do not replace TypeORM with another ORM without a separately reviewed decision and migration plan.
 
+**Production relational database:** Neon PostgreSQL remains the production database. Local development and CI may use separate PostgreSQL instances. Object storage is independent of the relational database and follows the provider-neutral S3-compatible storage architecture; the existence of a Neon object-storage bucket does not make it the selected application storage provider.
+
 ## Current implemented source areas
 
 - `identity`: user identity, profile and consent persistence.
