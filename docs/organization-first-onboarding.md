@@ -49,3 +49,8 @@ A failed guarded rollback requires an explicit data-retention/reconciliation pla
 ## Outstanding scope
 
 Evidence upload/review, RFI responses, editable application amendments, session recovery, multiple-representative authority and a complete browser-driven submit → verify → review → claim journey remain outside this implementation slice. The evidence-storage architecture is provider-neutral; object storage is separate from the Neon PostgreSQL production relational database.
+
+
+## Rollback verification
+
+The migration unit tests cover all three outcomes: refusal when application rows remain, refusal when creator-less organisations remain, and successful rollback when both data checks are clear. PostgreSQL migration CI additionally verifies the real migration sequence can be reverted in dependency order and reapplied on a clean disposable database.
