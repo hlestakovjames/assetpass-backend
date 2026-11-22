@@ -38,7 +38,7 @@ describe('MapLegacyPlatformRolesToGlobalAdministrator1794900000000', () => {
     expect(query).toHaveBeenCalledTimes(6);
     expect(query.mock.calls[3][0]).toContain("WHEN 'Global Administrator' THEN 'Platform Owner'");
     expect(query.mock.calls[3][0]).toContain("WHEN 'Central Platform Administrator' THEN 'Platform Administrator'");
-    expect(query.mock.calls[4][0]).toContain("WHERE \"role\" = 'Platform Owner'");
+    expect(query.mock.calls[5][0]).toContain("WHERE \"role\" = 'Platform Owner'");
   });
 
   it('refuses rollback if legacy role names already coexist', async () => {
