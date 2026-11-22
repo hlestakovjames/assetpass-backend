@@ -38,6 +38,16 @@ export class CreateOrganizationFirstOnboarding1794700000000 implements Migration
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const onboardingApplications: Array<{ count: string }> = await queryRunner.query(
+      'SELECT COUNT(*)::text AS count FROM "organization_onboarding_applications"',
+    );
+
+    if (Number(onboardingApplications[0]?.count ?? 0) > 0) {
+      throw new Error(
+        'Cannot revert CreateOrganizationFirstOnboarding while onboarding applications exist. Export and reconcile application records before retrying the rollback.',
+      );
+    }
+
     const organizationsWithoutCreator: Array<{ count: string }> = await queryRunner.query(
       'SELECT COUNT(*)::text AS count FROM "organizations" WHERE "created_by_user_id" IS NULL',
     );
