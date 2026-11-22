@@ -27,7 +27,7 @@ The migration has guards against mixed target-role rows, updates the role check 
 
 ## Validation evidence
 
-[Backend CI run #338](https://github.com/hlestakovjames/assetpass-backend/actions/runs/44972101677) passed: backend build; 23 unit-test suites / 157 tests; 3 PostgreSQL-backed E2E suites / 29 tests; migration apply; reverse rollback of the Global Administrator role migration and both organisation-onboarding migrations; reapplication and final migration-state verification.
+[Backend CI run #340](https://github.com/hlestakovjames/assetpass-backend/actions/runs/44972376748) passed: backend build; 23 unit-test suites / 158 tests; 3 PostgreSQL-backed E2E suites / 29 tests; migration apply; reverse rollback of the Global Administrator role migration and both organisation-onboarding migrations; reapplication and final migration-state verification.
 
 ## Release and production boundary
 
