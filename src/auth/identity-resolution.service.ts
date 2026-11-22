@@ -94,8 +94,8 @@ export class IdentityResolutionService {
     ]);
 
     const platformRoles = platformRoleRows.map((row) => row.role);
-    const isPlatformOwner = platformRoles.includes('Platform Owner');
-    const platformPermissionRows = isPlatformOwner
+    const isGlobalAdministrator = platformRoles.includes('Global Administrator');
+    const platformPermissionRows = isGlobalAdministrator
       ? await this.dataSource.query<PermissionRow[]>(
           `SELECT key FROM permissions WHERE scope = 'platform' ORDER BY key ASC`,
         )
@@ -106,7 +106,7 @@ export class IdentityResolutionService {
            INNER JOIN permissions p ON p.id = prp.permission_id
            WHERE pr.user_id = $1
              AND pr.revoked_at IS NULL
-             AND pr.role = 'Platform Administrator'
+             AND pr.role = 'Central Platform Administrator'
              AND p.scope = 'platform'
            ORDER BY p.key ASC`,
           [user.id],
