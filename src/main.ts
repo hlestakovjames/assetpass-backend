@@ -30,6 +30,7 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-CSRF-Token',
+      'X-Organization-Onboarding-Session',
     ],
     maxAge: 600,
   });

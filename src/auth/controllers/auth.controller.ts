@@ -113,11 +113,11 @@ export class AuthController {
     }
 
     const user = await this.authService.validateCredentials(body.email, body.password);
-    const identity = await this.identityResolution.resolve(user);
     const session = await this.refreshTokenService.createSession(
       user.id,
       this.getSessionMetadata(request),
     );
+    const identity = await this.identityResolution.resolve(user, session.sessionId);
     const accessToken = await this.accessTokenService.issueAccessToken(
       user.id,
       session.sessionId,
@@ -194,6 +194,6 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-    return this.identityResolution.resolve(request.user);
+    return this.identityResolution.resolve(request.user, request.user.sessionId);
   }
 }

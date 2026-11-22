@@ -112,47 +112,8 @@ describe('RegistrationService early-launch registration', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
-  it('creates an organization and pending initial membership in the same transaction', async () => {
-    const { service, repositories, dataSource, email } = makeService();
-    const organizationRepo = repositories.get(Organization)!;
-    const membershipRepo = repositories.get(OrganizationMembership)!;
-    const result = await service.register({
-      accountType: 'organization',
-      firstName: 'Jane',
-      lastName: 'Director',
-      email: 'jane@example.com',
-      password: 'a-secure-password-123',
-      phoneNumber: '+254712345678',
-      countryCode: 'KE',
-      organizationDisplayName: 'Example Foundation',
-      organizationType: 'NGO',
-      industrySector: 'Community development',
-      contactEmail: 'info@example.org',
-      contactPhone: '+254700000000',
-      physicalAddress: 'Kisumu, Kenya',
-      termsAccepted: true,
-      privacyNoticeAcknowledged: true,
-      position: 'Director',
-      registrationRelationship: 'Director',
-      authorityConfirmation: 'YES',
-    });
-
-    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-    expect(organizationRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-      displayName: 'Example Foundation',
-      status: 'pending_review',
-      physicalAddress: 'Kisumu, Kenya',
-    }));
-    expect(membershipRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'pending',
-      joinedAt: null,
-    }));
-    expect(email.sendVerificationEmail).not.toHaveBeenCalled();
-    expect(result.message).toContain('submitted for platform review');
-  });
-
-  it('rejects organization registration without a physical address or official phone', async () => {
-    const { service, dataSource } = makeService();
+  it('requires organisation applications to use the separate organisation-first onboarding flow', async () => {
+    const { service, dataSource, repositories } = makeService();
     await expect(service.register({
       accountType: 'organization',
       firstName: 'Jane',
@@ -163,15 +124,16 @@ describe('RegistrationService early-launch registration', () => {
       organizationDisplayName: 'Example Foundation',
       organizationType: 'NGO',
       contactEmail: 'info@example.org',
-      contactPhone: '',
-      physicalAddress: '',
+      contactPhone: '+254700000000',
+      physicalAddress: 'Nairobi, Kenya',
       termsAccepted: true,
       privacyNoticeAcknowledged: true,
       position: 'Director',
       registrationRelationship: 'Director',
       authorityConfirmation: 'YES',
-    })).rejects.toThrow('Organization name, type, official email, official phone, physical address, contact position and registration authority confirmation are required.');
+    })).rejects.toThrow('Organisation applications must use the organisation-first onboarding process.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(repositories.get(Organization)!.save).not.toHaveBeenCalled();
   });
 
   it('retains optional verification for legacy unverified accounts', async () => {

@@ -19,6 +19,8 @@ import { BrowserOriginGuard } from '../src/auth/guards/browser-origin.guard';
 import { CookieCsrfGuard } from '../src/auth/guards/cookie-csrf.guard';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { AuthCookies } from '../src/auth/utils/auth-cookies';
+import { IdentityResolutionService } from '../src/auth/identity-resolution.service';
+import { RegistrationService } from '../src/auth/registration.service';
 import { getTrustedOrigins } from '../src/auth/utils/trusted-origins';
 
 const TRUSTED_ORIGIN = 'http://localhost:3000';
@@ -62,6 +64,9 @@ describe('Authentication HTTP integration (e2e)', () => {
     issueAccessToken: jest.fn(),
   };
 
+  const identityResolution = { resolve: jest.fn() };
+  const registrationService = { register: jest.fn(), verify: jest.fn(), resend: jest.fn() };
+
   const refreshTokenService = {
     createSession: jest.fn(),
     rotate: jest.fn(),
@@ -100,6 +105,8 @@ describe('Authentication HTTP integration (e2e)', () => {
         { provide: AuthService, useValue: authService },
         { provide: AccessTokenService, useValue: accessTokenService },
         { provide: RefreshTokenService, useValue: refreshTokenService },
+        { provide: IdentityResolutionService, useValue: identityResolution },
+        { provide: RegistrationService, useValue: registrationService },
         AuthCookies,
         BrowserOriginGuard,
         CookieCsrfGuard,
@@ -137,6 +144,7 @@ describe('Authentication HTTP integration (e2e)', () => {
     jest.clearAllMocks();
 
     authService.validateCredentials.mockResolvedValue(identity);
+    identityResolution.resolve.mockResolvedValue(identity);
     accessTokenService.issueAccessToken.mockResolvedValue(
       'integration-access-token',
     );

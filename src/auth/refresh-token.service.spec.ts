@@ -65,6 +65,7 @@ describe('RefreshTokenService', () => {
     };
 
     manager = {
+      query: jest.fn().mockResolvedValue([]),
       getRepository: jest.fn((entity: unknown) => {
         if (entity === AuthSession) {
           return sessionsRepository;
@@ -233,6 +234,11 @@ describe('RefreshTokenService', () => {
           },
           lock: { mode: 'pessimistic_write' },
         }),
+      );
+
+      expect(manager.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO auth_session_contexts'),
+        [replacementSessionId, activeSession.id],
       );
 
       expect(sessionsRepository.save).toHaveBeenLastCalledWith(

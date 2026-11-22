@@ -243,6 +243,11 @@ describe('AuthController', () => {
         },
       );
 
+      expect(identityResolution.resolve).toHaveBeenCalledWith(
+        identity,
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      );
+
       expect(accessTokenService.issueAccessToken).toHaveBeenCalledWith(
         identity.id,
         'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
@@ -450,7 +455,7 @@ describe('AuthController', () => {
         response as unknown as Response,
       );
 
-      expect(identityResolution.resolve).toHaveBeenCalledWith(identity);
+      expect(identityResolution.resolve).toHaveBeenCalledWith(identity, undefined);
       expect(result).toEqual(resolvedIdentity);
 
       expect(response.setHeader).toHaveBeenCalledWith(

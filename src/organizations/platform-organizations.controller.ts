@@ -6,17 +6,27 @@ import { RequirePlatformPermission } from '../access-control/platform-permission
 import { PlatformPermissionGuard } from '../access-control/platform-permission.guard';
 import { OrganizationStatus } from './entities/organization.entity';
 import { OrganizationsService } from './organizations.service';
+import { OrganizationOnboardingService } from './organization-onboarding.service';
 
 type AuthenticatedRequest = Request & { user: AuthenticatedIdentity };
 
 @Controller('platform/organizations')
 @UseGuards(JwtAuthGuard, PlatformPermissionGuard)
 export class PlatformOrganizationsController {
-  constructor(private readonly service: OrganizationsService) {}
+  constructor(
+    private readonly service: OrganizationsService,
+    private readonly onboarding: OrganizationOnboardingService,
+  ) {}
   @Get() @RequirePlatformPermission('platform.organizations.read')
   list(@Query('status') status?: OrganizationStatus) { return this.service.list(status); }
   @Patch(':id/status') @RequirePlatformPermission('platform.organizations.review')
   review(@Param('id') id: string, @Req() request: AuthenticatedRequest, @Body() body: { status: OrganizationStatus; note?: string }) {
-    return this.service.review(id, request.user.id, body.status, body.note);
+    return this.service.review(id, request.user.id, body.status, body.note).then(async (organization) => {
+      if (organization.status === OrganizationStatus.ACTIVE) {
+        const claimInvitation = await this.onboarding.issueClaimInvitation(id, request.user.id);
+        return { ...organization, claimInvitation };
+      }
+      return organization;
+    });
   }
 }

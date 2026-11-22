@@ -39,7 +39,7 @@ export class Organization {
   @Column({ name: 'tax_identifier', type: 'varchar', length: 100, nullable: true }) taxIdentifier: string | null;
   @Column({ name: 'logo_url', type: 'text', nullable: true }) logoUrl: string | null;
   @Column({ type: 'enum', enum: OrganizationStatus, enumName: 'organization_status', default: OrganizationStatus.PENDING_REVIEW }) status: OrganizationStatus;
-  @Column({ name: 'created_by_user_id', type: 'uuid' }) createdByUserId: string;
+  @Column({ name: 'created_by_user_id', type: 'uuid', nullable: true }) createdByUserId: string | null;
   @Column({ name: 'reviewed_by_user_id', type: 'uuid', nullable: true }) reviewedByUserId: string | null;
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true }) reviewedAt: Date | null;
   @Column({ name: 'decision_note', type: 'text', nullable: true }) decisionNote: string | null;

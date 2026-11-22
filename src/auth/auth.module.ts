@@ -73,6 +73,8 @@ import { AuthCookies } from './utils/auth-cookies';
     RefreshTokenService,
     AccessTokenService,
     JwtAuthGuard,
+    BrowserOriginGuard,
+    EmailDeliveryService,
   ],
 })
 export class AuthModule {}

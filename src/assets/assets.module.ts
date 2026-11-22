@@ -15,6 +15,7 @@ import { AssetRegistrationRecord } from './entities/asset-registration-record.en
 import { AssetsController } from './assets.controller';
 import { OrganizationAssetsController } from './organization-assets.controller';
 import { AssetsService } from './assets.service';
+import { IndividualWorkspaceActiveGuard } from '../workspaces/guards/individual-workspace-active.guard';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { AssetsService } from './assets.service';
     AccessControlModule,
   ],
   controllers: [AssetsController, OrganizationAssetsController],
-  providers: [AssetsService],
+  providers: [AssetsService, IndividualWorkspaceActiveGuard],
   exports: [AssetsService],
 })
 export class AssetsModule {}
