@@ -38,9 +38,9 @@ Migration `1794700000000-CreateOrganizationFirstOnboarding` makes `organizations
 
 Its rollback is deliberately guarded:
 
-1. It first counts organisations whose `created_by_user_id` is NULL.
-2. If any exist, rollback aborts with a clear error. It does not drop the onboarding application table or discard the records' onboarding provenance.
-3. If no such organisations exist, it drops `organization_onboarding_applications` and restores `created_by_user_id` to `NOT NULL`.
+1. It first counts rows in `organization_onboarding_applications`. If any applications exist, rollback aborts before dropping the table, preserving pending, verified and claimed application history.
+2. It then counts organisations whose `created_by_user_id` is NULL. If any exist, rollback aborts with a clear error rather than orphaning organisation identity from its establishing workflow.
+3. Only when both checks are clear does it drop `organization_onboarding_applications` and restore `created_by_user_id` to `NOT NULL`.
 
 The preceding onboarding-session migration must be reverted first. The migration CI job applies the full sequence, reverts `179480`, then reverts `179470`, reapplies both migrations and confirms the final migration state.
 
