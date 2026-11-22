@@ -111,6 +111,22 @@ describe('IdentityResolutionService', () => {
     ]);
   });
 
+  it('limits Central Platform Administrator permissions to its existing explicit grants', async () => {
+    query
+      .mockResolvedValueOnce([{ role: 'Central Platform Administrator' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ key: 'platform.users.read' }])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.resolve(user);
+
+    expect(result.platformRoles).toEqual(['Central Platform Administrator']);
+    expect(result.platformPermissions).toEqual(['platform.users.read']);
+    expect(query.mock.calls[2][0]).toContain('INNER JOIN platform_role_permissions');
+    expect(query.mock.calls[2][0]).toContain("pr.role = 'Central Platform Administrator'");
+    expect(query.mock.calls[2][1]).toEqual([user.id]);
+  });
+
   it('keeps a pending organization visible without granting an active organization workspace', async () => {
     query
       .mockResolvedValueOnce([])
