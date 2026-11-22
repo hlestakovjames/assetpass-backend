@@ -38,6 +38,17 @@ export class CreateOrganizationFirstOnboarding1794700000000 implements Migration
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const organizationsWithoutCreator: Array<{ count: string }> = await queryRunner.query(
+      'SELECT COUNT(*)::text AS count FROM "organizations" WHERE "created_by_user_id" IS NULL',
+    );
+
+    if (Number(organizationsWithoutCreator[0]?.count ?? 0) > 0) {
+      throw new Error(
+        'Cannot revert CreateOrganizationFirstOnboarding while organizations have no creator. Resolve or migrate those records before retrying the rollback.',
+      );
+    }
+
     await queryRunner.query('DROP TABLE "organization_onboarding_applications"');
+    await queryRunner.query('ALTER TABLE "organizations" ALTER COLUMN "created_by_user_id" SET NOT NULL');
   }
 }
