@@ -66,7 +66,7 @@ async function bootstrapPlatformOwner(): Promise<void> {
   let email: string;
 
   try {
-    console.log('\nAssetPass — Initial Platform Owner Bootstrap');
+    console.log('\nAssetPass — Initial Global Administrator Bootstrap');
     console.log('This operation can only be completed once.\n');
 
     fullName = (await terminal.question('Full name: ')).trim();
@@ -76,7 +76,7 @@ async function bootstrapPlatformOwner(): Promise<void> {
   }
 
   if (!fullName || fullName.length > 200) {
-    throw new Error('Owner name is required and must not exceed 200 characters.');
+    throw new Error('Administrator name is required and must not exceed 200 characters.');
   }
 
   if (
@@ -84,10 +84,10 @@ async function bootstrapPlatformOwner(): Promise<void> {
     email.length > 320 ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   ) {
-    throw new Error('A valid owner email address is required.');
+    throw new Error('A valid administrator email address is required.');
   }
 
-  let password = await readHiddenPassword('Initial owner password');
+  let password = await readHiddenPassword('Initial Global Administrator password');
 
   if (password.length < 14 || password.length > 1024) {
     password = '';
@@ -95,7 +95,7 @@ async function bootstrapPlatformOwner(): Promise<void> {
   }
 
   const passwordConfirmation = await readHiddenPassword(
-    'Confirm initial owner password',
+    'Confirm initial Global Administrator password',
   );
 
   if (password !== passwordConfirmation) {
@@ -112,7 +112,7 @@ async function bootstrapPlatformOwner(): Promise<void> {
 
   try {
     confirmation = await confirmationTerminal.question(
-      'Confirm initial owner creation? Type YES: ',
+      'Confirm initial Global Administrator creation? Type YES: ',
     );
   } finally {
     confirmationTerminal.close();
@@ -143,10 +143,10 @@ async function bootstrapPlatformOwner(): Promise<void> {
     });
 
     console.log('\nPlatform bootstrap completed successfully.');
-    console.log(`Initial Platform Owner: ${fullName}`);
+    console.log(`Initial Global Administrator: ${fullName}`);
     console.log(`Email: ${email}`);
     console.log(`User ID: ${savedOwner.id}`);
-    console.log('Role: Platform Owner');
+    console.log('Role: Global Administrator');
   } finally {
     if (dataSource.isInitialized) {
       await dataSource.destroy();

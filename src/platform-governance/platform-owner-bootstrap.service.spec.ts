@@ -120,7 +120,7 @@ describe('completePlatformOwnerBootstrap', () => {
     expect(roleRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: ownerId,
-        role: PlatformRoleName.OWNER,
+        role: PlatformRoleName.GLOBAL_ADMINISTRATOR,
         assignedByUserId: null,
         revokedAt: null,
       }),
@@ -174,15 +174,15 @@ describe('completePlatformOwnerBootstrap', () => {
     expect(userRepository.save).not.toHaveBeenCalled();
   });
 
-  it('rejects when an active Platform Owner already exists', async () => {
+  it('rejects when an active Global Administrator already exists', async () => {
     roleRepository.findOne.mockResolvedValue({
       userId: ownerId,
-      role: PlatformRoleName.OWNER,
+      role: PlatformRoleName.GLOBAL_ADMINISTRATOR,
     });
 
     await expect(
       completePlatformOwnerBootstrap(dataSource, input),
-    ).rejects.toThrow('An active Platform Owner already exists.');
+    ).rejects.toThrow('An active Global Administrator already exists.');
 
     expect(userRepository.findOne).not.toHaveBeenCalled();
     expect(userRepository.save).not.toHaveBeenCalled();

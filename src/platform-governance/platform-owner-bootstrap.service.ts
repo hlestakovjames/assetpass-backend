@@ -11,6 +11,11 @@ export interface InitialPlatformOwnerInput {
   passwordHash: string;
 }
 
+/**
+ * One-time bootstrap for a genuinely empty installation.
+ * Existing installations must use the reviewed role migration; bootstrap
+ * must never be rerun to convert or recreate an existing administrator.
+ */
 export async function completePlatformOwnerBootstrap(
   dataSource: DataSource,
   input: InitialPlatformOwnerInput,
@@ -42,15 +47,15 @@ export async function completePlatformOwnerBootstrap(
 
     const roleRepository = manager.getRepository(PlatformRole);
 
-    const existingOwner = await roleRepository.findOne({
+    const existingGlobalAdministrator = await roleRepository.findOne({
       where: {
-        role: PlatformRoleName.OWNER,
+        role: PlatformRoleName.GLOBAL_ADMINISTRATOR,
         revokedAt: IsNull(),
       },
     });
 
-    if (existingOwner) {
-      throw new Error('An active Platform Owner already exists.');
+    if (existingGlobalAdministrator) {
+      throw new Error('An active Global Administrator already exists.');
     }
 
     const userRepository = manager.getRepository(User);
@@ -78,10 +83,10 @@ export async function completePlatformOwnerBootstrap(
     await roleRepository.save(
       roleRepository.create({
         userId: savedOwner.id,
-        role: PlatformRoleName.OWNER,
+        role: PlatformRoleName.GLOBAL_ADMINISTRATOR,
         assignedByUserId: null,
         revokedAt: null,
-        reason: 'Initial Platform Owner established during secure bootstrap.',
+        reason: 'Initial Global Administrator established during secure bootstrap.',
       }),
     );
 
@@ -112,10 +117,10 @@ export async function completePlatformOwnerBootstrap(
         entityType: 'platform_governance',
         entityId: savedOwner.id,
         outcome: 'success',
-        reason: 'Initial Platform Owner established.',
+        reason: 'Initial Global Administrator established.',
         metadata: {
           bootstrapMethod: 'one_time_cli',
-          assignedRole: PlatformRoleName.OWNER,
+          assignedRole: PlatformRoleName.GLOBAL_ADMINISTRATOR,
         },
       }),
     );
