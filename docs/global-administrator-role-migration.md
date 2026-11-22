@@ -25,6 +25,10 @@ The migration has guards against mixed target-role rows, updates the role check 
 - Legacy owner-only route decorators remain source-compatible and now mean Global Administrator-only.
 - The one-time bootstrap command assigns Global Administrator only on an empty installation. It must never be rerun to convert an existing production account.
 
+## Validation evidence
+
+[Backend CI run #338](https://github.com/hlestakovjames/assetpass-backend/actions/runs/44972101677) passed: backend build; 23 unit-test suites / 157 tests; 3 PostgreSQL-backed E2E suites / 29 tests; migration apply; reverse rollback of the Global Administrator role migration and both organisation-onboarding migrations; reapplication and final migration-state verification.
+
 ## Release and production boundary
 
 The role migration is code-reviewed and validated through CI before production application. Merging code does not apply the migration. Neon PostgreSQL remains the production relational database. A production migration requires a separate approved migration window and a recoverable backup/restore point.
