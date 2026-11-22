@@ -177,7 +177,7 @@ describe('completePlatformOwnerBootstrap', () => {
   it('rejects when an active Global Administrator already exists', async () => {
     roleRepository.findOne.mockResolvedValue({
       userId: ownerId,
-      role: PlatformRoleName.OWNER,
+      role: PlatformRoleName.GLOBAL_ADMINISTRATOR,
     });
 
     await expect(
