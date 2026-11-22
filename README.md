@@ -89,7 +89,7 @@ npm test -- --runInBand
 npm run test:e2e
 ```
 
-The GitHub Actions workflow validates the backend build, unit tests, the complete end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services. The migration-validation job applies the complete sequence, rolls back the organisation-onboarding session migration and organisation-first migration in reverse order, verifies the data-safety guards, reapplies both, and verifies the final migration state. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+The GitHub Actions workflow validates the backend build, unit tests, the complete end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services. The unit suite tests both guarded rollback failure cases and the successful empty-database rollback. The migration-validation job applies the complete sequence, rolls back the organisation-onboarding session migration and organisation-first migration in reverse order, reapplies both, and verifies the final migration state. Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
 
 ## Workspace lifecycle implementation note
 
