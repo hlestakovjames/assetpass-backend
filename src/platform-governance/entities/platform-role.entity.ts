@@ -7,14 +7,14 @@ import {
 } from 'typeorm';
 
 export enum PlatformRoleName {
-  OWNER = 'Platform Owner',
-  ADMINISTRATOR = 'Platform Administrator',
+  GLOBAL_ADMINISTRATOR = 'Global Administrator',
+  CENTRAL_PLATFORM_ADMINISTRATOR = 'Central Platform Administrator',
 }
 
 @Entity('platform_roles')
 @Index('uq_platform_roles_one_active_owner', ['role'], {
   unique: true,
-  where: `"role" = 'Platform Owner' AND "revoked_at" IS NULL`,
+  where: `"role" = 'Global Administrator' AND "revoked_at" IS NULL`,
 })
 @Index('uq_platform_roles_user_active_role', ['userId', 'role'], {
   unique: true,
