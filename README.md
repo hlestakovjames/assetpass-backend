@@ -14,7 +14,7 @@ Do not treat every documented domain as an existing module or introduce microser
 
 - `identity`: user identity, profile and consent persistence.
 - `auth`: registration, login, email verification, access tokens, refresh-token sessions, JWT strategy, CSRF/browser-origin protections and email delivery.
-- `platform-governance`: current platform-role and governance/succession foundation.
+- `platform-governance`: current legacy Platform Owner role and governance/succession foundation. The expanded target model uses Global Administrator; a safe mapping of the existing production Platform Owner and Platform Administrator appointments is unresolved and must be implemented through a separately reviewed migration. Do not rerun bootstrap or recreate the existing owner account.
 - `access-control`: platform and organisation role/permission persistence and platform permission guard.
 - `organizations`: organisation records, memberships, registration/review and member management foundation.
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
