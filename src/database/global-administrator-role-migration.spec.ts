@@ -13,13 +13,13 @@ describe('MapLegacyPlatformRolesToGlobalAdministrator1794900000000', () => {
   it('maps both legacy roles in place and recreates the top-administrator uniqueness constraint', async () => {
     await migration.up({ query } as unknown as QueryRunner);
 
-    expect(query).toHaveBeenCalledTimes(5);
+    expect(query).toHaveBeenCalledTimes(6);
     expect(query.mock.calls[0][0]).toContain("'Global Administrator'");
     expect(query.mock.calls[1][0]).toContain('DROP INDEX');
     expect(query.mock.calls[2][0]).toContain('DROP CONSTRAINT');
     expect(query.mock.calls[3][0]).toContain("WHEN 'Platform Owner' THEN 'Global Administrator'");
     expect(query.mock.calls[3][0]).toContain("WHEN 'Platform Administrator' THEN 'Central Platform Administrator'");
-    expect(query.mock.calls[4][0]).toContain("WHERE \"role\" = 'Global Administrator'");
+    expect(query.mock.calls[5][0]).toContain("WHERE \"role\" = 'Global Administrator'");
   });
 
   it('refuses to apply when target role names already exist', async () => {
@@ -35,7 +35,7 @@ describe('MapLegacyPlatformRolesToGlobalAdministrator1794900000000', () => {
   it('reverses role labels without changing role record identities or grant references', async () => {
     await migration.down({ query } as unknown as QueryRunner);
 
-    expect(query).toHaveBeenCalledTimes(5);
+    expect(query).toHaveBeenCalledTimes(6);
     expect(query.mock.calls[3][0]).toContain("WHEN 'Global Administrator' THEN 'Platform Owner'");
     expect(query.mock.calls[3][0]).toContain("WHEN 'Central Platform Administrator' THEN 'Platform Administrator'");
     expect(query.mock.calls[4][0]).toContain("WHERE \"role\" = 'Platform Owner'");
