@@ -16,7 +16,7 @@ Do not treat every documented domain as an existing module or introduce microser
 
 - `identity`: user identity, profile and consent persistence.
 - `auth`: registration, login, email verification, access tokens, refresh-token sessions, JWT strategy, CSRF/browser-origin protections and email delivery.
-- `platform-governance`: current legacy Platform Owner role and governance/succession foundation. The expanded target model uses Global Administrator; a safe mapping of the existing production Platform Owner and Platform Administrator appointments is unresolved and must be implemented through a separately reviewed migration. Do not rerun bootstrap or recreate the existing owner account.
+- `platform-governance`: Global Administrator and Central Platform Administrator role hierarchy, plus platform governance/succession foundation. The forward migration preserves existing platform role row IDs, user IDs, grants, assignment/revocation timestamps, governance ownership references, succession history and audit records while mapping legacy role names. The existing Platform Owner becomes the top Global Administrator and retains all registered platform operational permissions. Do not rerun bootstrap or recreate the existing owner account.
 - `access-control`: platform and organisation role/permission persistence and platform permission guard.
 - `organizations`: organisation records, memberships, registration/review and member management foundation.
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
@@ -93,7 +93,7 @@ npm run test:e2e
 
 The GitHub Actions workflow validates the backend build, unit tests, the complete end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services. The unit suite tests both guarded rollback failure cases and the successful empty-database rollback. The migration-validation job applies the complete sequence, rolls back the organisation-onboarding session migration and organisation-first migration in reverse order, reapplies both, and verifies the final migration state. Latest GitHub Actions run: 22 unit-test suites / 153 tests passed, 3 PostgreSQL-backed E2E suites / 29 tests passed, and the full migration apply → reverse rollback → reapply validation passed. [Latest successful backend CI run](https://github.com/hlestakovjames/assetpass-backend/actions/runs/44967880711). Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
 
-## Workspace lifecycle implementation note
+## Platform role hierarchy and migration\n\nThe Global Administrator is the highest platform authority and retains all registered platform operational permissions. Existing Platform Owner and Platform Administrator assignments are converted in place to Global Administrator and Central Platform Administrator, respectively. The migration preserves role IDs, user IDs, permission-grant rows, governance ownership references, succession records and audit history. Central Platform Administrators retain only their explicitly assigned platform permissions. Private individual and organisation records remain subject to their separate access and audit policies.\n\nSee [Global Administrator Role Migration](docs/global-administrator-role-migration.md). This migration is not applied to production by a code merge; production application requires a separately approved migration window.\n\n## Workspace lifecycle implementation note
 
 See [Individual Workspace Lifecycle](docs/individual-workspace-lifecycle.md) for the persistence model, endpoints, audit behavior and migration-before-deployment requirement.
 
@@ -119,7 +119,7 @@ See [Organisation-First Onboarding](docs/organization-first-onboarding.md) for t
 1. Complete CI and review of the Individual Workspace lifecycle and session-scoped context selection.
 2. Complete CI and review of the account-free organisation application, representative verification, platform review and post-approval claim-code flow.
 3. Add private evidence upload/review, session recovery and multiple-representative authority; the current onboarding session is read-only.
-4. Global Administrator role migration and platform-authority boundaries.
+4. Review and apply the Global Administrator role migration only after the full PR chain is merged and the production migration plan is explicitly approved.
 5. Platform-managed asset taxonomy and expanded lifecycle APIs.
 6. Marketplace domain, public discovery and transaction boundaries.
 7. Shared document, workflow, communication, integration and intelligence/security capabilities.
