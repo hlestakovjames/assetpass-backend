@@ -83,9 +83,9 @@ describe('IdentityResolutionService', () => {
     ]);
   });
 
-  it('gives the platform owner the platform landing route and registered platform permissions', async () => {
+  it('gives the Global Administrator the platform landing route and all registered platform permissions', async () => {
     query
-      .mockResolvedValueOnce([{ role: 'Platform Owner' }])
+      .mockResolvedValueOnce([{ role: 'Global Administrator' }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { key: 'platform.users.view' },
@@ -95,7 +95,7 @@ describe('IdentityResolutionService', () => {
 
     const result = await service.resolve(user);
 
-    expect(result.platformRoles).toEqual(['Platform Owner']);
+    expect(result.platformRoles).toEqual(['Global Administrator']);
     expect(result.platformPermissions).toEqual([
       'platform.users.view',
       'platform.organizations.review',
