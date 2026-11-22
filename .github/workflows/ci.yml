@@ -101,9 +101,11 @@ jobs:
         run: npm run migration:run
       - name: Verify applied migrations
         run: npm run migration:show
-      - name: Verify latest migration rollback
+      - name: Roll back organisation onboarding session migration
         run: npm run migration:revert
-      - name: Reapply latest migration
+      - name: Roll back organisation-first onboarding migration
+        run: npm run migration:revert
+      - name: Reapply organisation-first onboarding migrations
         run: npm run migration:run
-      - name: Confirm migration state after reapply
+      - name: Confirm migration state after rollback and reapply
         run: npm run migration:show
