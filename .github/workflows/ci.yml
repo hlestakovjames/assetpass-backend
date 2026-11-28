@@ -105,6 +105,97 @@ jobs:
         run: npm run migration:run
       - name: Verify applied migrations
         run: npm run migration:show
+      - name: Verify membership history database guards
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+
+          CREATE TEMP TABLE membership_event_guard_probe (id integer) ON COMMIT DROP;
+          CREATE TRIGGER membership_event_guard_probe_trigger
+          BEFORE UPDATE OR DELETE ON membership_event_guard_probe
+          FOR EACH ROW EXECUTE FUNCTION reject_organization_membership_event_mutation();
+          INSERT INTO membership_event_guard_probe (id) VALUES (1);
+
+          DO $event_guard$
+          BEGIN
+            BEGIN
+              UPDATE membership_event_guard_probe SET id = 2 WHERE id = 1;
+              RAISE EXCEPTION 'Expected membership event UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+            BEGIN
+              DELETE FROM membership_event_guard_probe WHERE id = 1;
+              RAISE EXCEPTION 'Expected membership event DELETE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $event_guard$;
+
+          CREATE TEMP TABLE role_assignment_guard_probe (
+            id integer PRIMARY KEY,
+            membership_id uuid,
+            role_id uuid,
+            assigned_by_user_id uuid,
+            assigned_at timestamptz,
+            revoked_at timestamptz,
+            revoked_by_user_id uuid,
+            revocation_reason text
+          ) ON COMMIT DROP;
+          CREATE TRIGGER role_assignment_guard_probe_trigger
+          BEFORE UPDATE OR DELETE ON role_assignment_guard_probe
+          FOR EACH ROW EXECUTE FUNCTION guard_organization_membership_role_history();
+          INSERT INTO role_assignment_guard_probe (
+            id, membership_id, role_id, assigned_by_user_id, assigned_at
+          ) VALUES (
+            1,
+            '11111111-1111-4111-8111-111111111111',
+            '22222222-2222-4222-8222-222222222222',
+            '33333333-3333-4333-8333-333333333333',
+            now()
+          );
+
+          DO $role_guard$
+          BEGIN
+            BEGIN
+              UPDATE role_assignment_guard_probe
+              SET role_id = '44444444-4444-4444-8444-444444444444'
+              WHERE id = 1;
+              RAISE EXCEPTION 'Expected role assignment identity UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+            BEGIN
+              DELETE FROM role_assignment_guard_probe WHERE id = 1;
+              RAISE EXCEPTION 'Expected role assignment DELETE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $role_guard$;
+
+          UPDATE role_assignment_guard_probe
+          SET revoked_at = now(),
+              revoked_by_user_id = '33333333-3333-4333-8333-333333333333',
+              revocation_reason = 'CI test revocation'
+          WHERE id = 1;
+
+          DO $role_revoke_guard$
+          BEGIN
+            BEGIN
+              UPDATE role_assignment_guard_probe
+              SET revocation_reason = 'attempted history rewrite'
+              WHERE id = 1;
+              RAISE EXCEPTION 'Expected a second role assignment revocation UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $role_revoke_guard$;
+
+          ROLLBACK;
+          SQL
       - name: Roll back password recovery foundation migration
         run: npm run migration:revert
       - name: Roll back Global Administrator role migration
