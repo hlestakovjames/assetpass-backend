@@ -13,6 +13,7 @@ import { OrganizationOnboardingSession } from './entities/organization-onboardin
 import { EmailDeliveryService } from '../auth/email-delivery.service';
 import { appendOrganizationMembershipEvent } from './organization-membership-events';
 import { OrganizationMembershipEventType } from './entities/organization-membership-event.entity';
+import { validateOrganizationRegistrationDetails } from './organization-registration-rules';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 const ONBOARDING_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -28,6 +29,8 @@ export interface OrganizationFirstApplicationInput {
   privacyNoticeAcknowledged: boolean;
   organizationDisplayName: string;
   organizationType: string;
+  registrationStatus: string;
+  establishmentReference?: string;
   legalName?: string;
   industrySector?: string;
   legalStructure?: string;
@@ -477,6 +480,15 @@ function validateApplication(input: OrganizationFirstApplicationInput) {
   if (registrationDate && (!/^\d{4}-\d{2}-\d{2}$/.test(registrationDate) || Number.isNaN(Date.parse(registrationDate)))) {
     throw new BadRequestException('Enter a valid registration date in YYYY-MM-DD format.');
   }
+  const registrationRules = validateOrganizationRegistrationDetails({
+    organizationType,
+    registrationStatus: input.registrationStatus,
+    legalStructure: input.legalStructure,
+    registrationNumber: input.registrationNumber,
+    registrationAuthority: input.registrationAuthority,
+    establishmentReference: input.establishmentReference,
+    description: input.description,
+  });
   const countryCode = typeof input.countryCode === 'string' && /^[A-Za-z]{2}$/.test(input.countryCode.trim()) ? input.countryCode.trim().toUpperCase() : 'KE';
   return {
     representativeFirstName: first,
@@ -485,12 +497,16 @@ function validateApplication(input: OrganizationFirstApplicationInput) {
     representativePosition: position,
     registrationRelationship: relationship,
     organizationData: {
-      displayName, organizationType,
+      displayName,
+      organizationType: registrationRules.organizationType,
+      registrationStatus: registrationRules.registrationStatus,
+      organizationRulesVersion: registrationRules.rulesVersion,
+      establishmentReference: registrationRules.establishmentReference,
       legalName: optional(input.legalName, 250),
       industrySector: optional(input.industrySector, 120),
-      legalStructure: optional(input.legalStructure, 80),
-      registrationNumber: optional(input.registrationNumber, 100),
-      registrationAuthority: optional(input.registrationAuthority, 160),
+      legalStructure: registrationRules.legalStructure,
+      registrationNumber: registrationRules.registrationNumber,
+      registrationAuthority: registrationRules.registrationAuthority,
       registrationDate,
       contactEmail,
       alternativeEmail,
