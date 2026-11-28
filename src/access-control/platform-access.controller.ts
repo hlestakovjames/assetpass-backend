@@ -35,7 +35,7 @@ export class PlatformAccessController {
   @RequirePlatformOwner()
   async listAdministrators() {
     const roles = await this.platformRoles.find({
-      where: { role: PlatformRoleName.ADMINISTRATOR, revokedAt: IsNull() },
+      where: { role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR, revokedAt: IsNull() },
       order: { assignedAt: 'DESC' },
     });
     if (!roles.length) return [];
@@ -73,12 +73,12 @@ export class PlatformAccessController {
     });
     if (!user || user.status !== UserStatus.ACTIVE) throw new NotFoundException('An active user account was not found.');
     const existing = await this.platformRoles.findOne({
-      where: { userId: body.userId, role: PlatformRoleName.ADMINISTRATOR, revokedAt: IsNull() },
+      where: { userId: body.userId, role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR, revokedAt: IsNull() },
     });
-    if (existing) throw new ConflictException('This user is already an active Platform Administrator.');
+    if (existing) throw new ConflictException('This user is already an active Central Platform Administrator.');
     const role = await this.platformRoles.save(this.platformRoles.create({
       userId: body.userId,
-      role: PlatformRoleName.ADMINISTRATOR,
+      role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR,
       assignedByUserId: request.user.id,
       revokedAt: null,
       reason: body.reason.trim(),
@@ -90,7 +90,7 @@ export class PlatformAccessController {
       entityId: role.id,
       outcome: 'success',
       reason: body.reason.trim(),
-      metadata: { targetUserId: body.userId, role: PlatformRoleName.ADMINISTRATOR },
+      metadata: { targetUserId: body.userId, role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR },
     });
     return { roleId: role.id, userId: role.userId, role: role.role, assignedAt: role.assignedAt };
   }
@@ -99,9 +99,9 @@ export class PlatformAccessController {
   @RequirePlatformOwner()
   async revokeAdministrator(@Param('userId') userId: string, @Req() request: AuthenticatedRequest) {
     const role = await this.platformRoles.findOne({
-      where: { userId, role: PlatformRoleName.ADMINISTRATOR, revokedAt: IsNull() },
+      where: { userId, role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR, revokedAt: IsNull() },
     });
-    if (!role) throw new NotFoundException('Active Platform Administrator not found.');
+    if (!role) throw new NotFoundException('Active Central Platform Administrator not found.');
     role.revokedAt = new Date();
     await this.platformRoles.save(role);
     await this.auditLogs.save({
@@ -110,7 +110,7 @@ export class PlatformAccessController {
       entityType: 'platform_role',
       entityId: role.id,
       outcome: 'success',
-      reason: 'Platform Administrator access revoked by Platform Owner.',
+      reason: 'Central Platform Administrator access revoked by Global Administrator.',
       metadata: { targetUserId: userId },
     });
     return { userId, revoked: true };
@@ -120,9 +120,9 @@ export class PlatformAccessController {
   @RequirePlatformOwner()
   async getAdministratorPermissions(@Param('userId') userId: string) {
     const role = await this.platformRoles.findOne({
-      where: { userId, role: PlatformRoleName.ADMINISTRATOR, revokedAt: IsNull() },
+      where: { userId, role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR, revokedAt: IsNull() },
     });
-    if (!role) throw new NotFoundException('Active Platform Administrator not found.');
+    if (!role) throw new NotFoundException('Active Central Platform Administrator not found.');
     return this.grants.createQueryBuilder('grant')
       .innerJoin(Permission, 'permission', 'permission.id = grant.permission_id')
       .where('grant.platform_role_id = :roleId', { roleId: role.id })
@@ -142,9 +142,9 @@ export class PlatformAccessController {
       throw new BadRequestException('Provide a valid permissionKeys array.');
     }
     const role = await this.platformRoles.findOne({
-      where: { userId, role: PlatformRoleName.ADMINISTRATOR, revokedAt: IsNull() },
+      where: { userId, role: PlatformRoleName.CENTRAL_PLATFORM_ADMINISTRATOR, revokedAt: IsNull() },
     });
-    if (!role) throw new NotFoundException('Active Platform Administrator not found.');
+    if (!role) throw new NotFoundException('Active Central Platform Administrator not found.');
     const keys = [...new Set(body.permissionKeys)];
     const permissions = keys.length
       ? await this.permissions.find({ where: { key: In(keys), scope: PermissionScope.PLATFORM } })
