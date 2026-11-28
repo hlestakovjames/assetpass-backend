@@ -83,6 +83,7 @@ import { ApplicationEntitlementsService } from './application-entitlements.servi
     RefreshTokenService,
     AccessTokenService,
     JwtAuthGuard,
+    CookieCsrfGuard,
     BrowserOriginGuard,
     EmailDeliveryService,
   ],
