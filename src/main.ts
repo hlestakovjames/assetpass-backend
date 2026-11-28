@@ -10,6 +10,7 @@ async function bootstrap() {
   const config = app.get(ConfigService);
 
   const trustedOrigins = getTrustedOrigins(config);
+  app.set('trust proxy', config.get<number>('TRUST_PROXY_HOPS') ?? 0);
 
   app.setGlobalPrefix('api/v1');
 
