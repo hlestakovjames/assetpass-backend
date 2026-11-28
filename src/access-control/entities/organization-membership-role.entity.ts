@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { Check, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('organization_membership_roles')
+@Check('CHK_membership_role_revocation_after_assignment', '"revoked_at" IS NULL OR "revoked_at" >= "assigned_at"')
 @Index('uq_membership_role_assignment_active', ['membershipId', 'roleId'], {
   unique: true,
   where: '"revoked_at" IS NULL',
