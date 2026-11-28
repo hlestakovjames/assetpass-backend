@@ -25,7 +25,7 @@ export class CreateOrganizationMembershipHistory1795100000000
     await queryRunner.query(`
       ALTER TABLE "organization_membership_roles"
       ADD COLUMN "revoked_at" timestamptz,
-      ADD COLUMN "revoked_by_user_id" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+      ADD COLUMN "revoked_by_user_id" uuid REFERENCES "users"("id") ON DELETE RESTRICT,
       ADD COLUMN "revocation_reason" text
     `);
 
