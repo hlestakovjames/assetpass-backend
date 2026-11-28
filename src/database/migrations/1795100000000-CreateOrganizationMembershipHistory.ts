@@ -48,7 +48,7 @@ export class CreateOrganizationMembershipHistory1795100000000
     `);
     await queryRunner.query(`
       CREATE FUNCTION "guard_organization_membership_role_history"()
-      RETURNS trigger AS $
+      RETURNS trigger AS $role_history$
       BEGIN
         IF TG_OP = 'DELETE' THEN
           RAISE EXCEPTION 'organization_membership_roles history cannot be deleted'
@@ -69,7 +69,7 @@ export class CreateOrganizationMembershipHistory1795100000000
         END IF;
         RETURN NEW;
       END;
-      $ LANGUAGE plpgsql
+      $role_history$ LANGUAGE plpgsql
     `);
     await queryRunner.query(`
       CREATE TRIGGER "trg_organization_membership_roles_history_guard"
