@@ -15,10 +15,10 @@ Do not treat every documented domain as an existing module or introduce microser
 ## Current implemented source areas
 
 - `identity`: user identity, profile and consent persistence.
-- `auth`: registration, login, email verification, access tokens, rotating refresh-token sessions, JWT strategy, CSRF/browser-origin protections, email delivery and (in the Phase 1 password-recovery branch) password reset/change with session revocation.
+- `auth`: registration, login, email verification, access tokens, rotating refresh-token sessions, JWT strategy, CSRF/browser-origin protections, email delivery, password reset/change and session revocation (Phase 1 integration).
 - `platform-governance`: Global Administrator and Central Platform Administrator role hierarchy, plus platform governance/succession foundation. The forward migration preserves existing platform role row IDs, user IDs, grants, assignment/revocation timestamps, governance ownership references, succession history and audit records while mapping legacy role names. The existing Platform Owner becomes the top Global Administrator and retains all registered platform operational permissions. Do not rerun bootstrap or recreate the existing owner account.
-- `access-control`: platform and organisation role/permission persistence and platform permission guard.
-- `organizations`: organisation records, memberships, registration/review and member management foundation.
+- `access-control`: platform and organisation role/permission persistence, retained organization role-assignment history with one-time revocation and platform permission guard.
+- `organizations`: organisation records, stable memberships, append-only lifecycle history, invitation/rejoin flows, member/role management and tenant-scoped member-history API.
 - `assets`: asset parties, registration applications/evidence/records, ownership foundation and asset registration APIs.
 - `audit`: platform audit records.
 - `health`: health endpoint.
@@ -95,7 +95,19 @@ Reset tokens are stored only as SHA-256 hashes. Email reset links carry the one-
 
 Password recovery does not change account approval, activation, suspension, email verification, membership, workspace or permission state. An account that remains pending, rejected, suspended or deactivated remains subject to the ordinary login eligibility checks.
 
-The additive migration `1795000000000-CreatePasswordRecoveryFoundation` creates `password_reset_tokens` and `password_reset_request_events`. It must be reviewed and validated in CI before any production migration is considered. A merge does not execute this migration in production.
+The additive migration `1795000000000-CreatePasswordRecoveryFoundation` creates `password_reset_tokens` and `password_reset_request_events`. It is merged to `development/architecture-alignment` and passed isolated CI migration validation. It has not been applied to production.
+
+### Membership lifecycle and role history API
+
+The DBR-06 implementation adds:
+
+- `GET /api/v1/organizations/:organizationId/members/:membershipId/history` — requires the caller to hold `organization.members.read` within the requested active organization. It returns the stable membership anchor, first `joined_at`, ordered append-only lifecycle events and retained role-assignment history.
+- Membership events record creation, invitation, acceptance, activation, suspension, reactivation, rejection, removal, re-invitation and rejoin. The database enforces append-only event history and monotonic event ordering.
+- Role assignment rows are never deleted or reactivated. Revocation records actor, timestamp and reason; a partial unique index permits only one active membership/role assignment. A database trigger blocks deletion, assignment identity rewrites and repeated revocation.
+- Rejoining a removed member preserves the original membership ID and first `joined_at`, but requires fresh explicit role grants. Suspended memberships retain their grants while authorization remains blocked by membership status.
+- Organization and asset permission checks require an active membership, active role, unrevoked assignment, organization-scoped permission and a system role or role owned by the requested organization.
+
+Migration `1795100000000-CreateOrganizationMembershipHistory` is merged to `development/architecture-alignment` and passed isolated CI apply/rollback/reapply plus SQL trigger-behavior tests. The migration preserves existing membership and role-assignment IDs, records only a migration-time baseline, and closes legacy grants only for memberships already removed/rejected. Its rollback guard prevents discarding real membership events or role revocations. It has not been applied to production.
 
 ## Validation
 
@@ -105,7 +117,7 @@ npm test -- --runInBand
 npm run test:e2e
 ```
 
-The GitHub Actions workflow validates the backend build, unit tests, the complete end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services. The unit suite tests both guarded rollback failure cases and the successful empty-database rollback. The migration-validation job applies the complete sequence, rolls back the organisation-onboarding session migration and organisation-first migration in reverse order, reapplies both, and verifies the final migration state. Global Administrator role migration verification: 23 unit-test suites / 158 tests passed, 3 PostgreSQL-backed E2E suites / 29 tests passed, backend build passed, and PostgreSQL migration validation applied all migrations, rolled back the Global Administrator role migration and the two organisation-onboarding migrations in reverse order, then reapplied and verified the full migration state. [Successful backend CI run #340](https://github.com/hlestakovjames/assetpass-backend/actions/runs/44972376748). Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
+The GitHub Actions workflow validates the backend build, unit tests, HTTP end-to-end suite, and all TypeORM migrations against disposable PostgreSQL 16 services. The migration-validation job applies the full sequence, tests the membership event/role-assignment database guards, rolls back the five latest additive foundations in reverse order, reapplies them and verifies the final migration state. Phase 1 DBR-06 integration validation: 26 unit-test suites / 179 tests passed, 3 HTTP E2E suites / 35 tests passed, build passed, migration apply/rollback/reapply and SQL guard checks passed. [Successful backend CI run #445](https://github.com/hlestakovjames/assetpass-backend/actions/runs/46096402182). Run lint separately when changing code; review the current lint script before using it because it applies automatic fixes.
 
 ## Platform role hierarchy and migration
 
