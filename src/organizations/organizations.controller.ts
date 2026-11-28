@@ -98,6 +98,20 @@ export class OrganizationsController {
     );
   }
 
+  @Post(':organizationId/application-entitlements/marketplace/revoke')
+  @UseGuards(CookieCsrfGuard)
+  revokeMarketplace(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+    @Body() body: { reason?: unknown },
+  ) {
+    return this.applicationEntitlements.revokeOrganizationMarketplace(
+      request.user.id,
+      organizationId,
+      body?.reason,
+    );
+  }
+
   @Post(':organizationId/marketplace/representatives')
   @UseGuards(CookieCsrfGuard)
   grantMarketplaceRepresentative(
