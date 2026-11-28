@@ -196,6 +196,8 @@ jobs:
 
           ROLLBACK;
           SQL
+      - name: Roll back organization membership history migration
+        run: npm run migration:revert
       - name: Roll back password recovery foundation migration
         run: npm run migration:revert
       - name: Roll back Global Administrator role migration
