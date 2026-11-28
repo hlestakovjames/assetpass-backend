@@ -43,7 +43,7 @@ describe('RegistrationService early-launch registration', () => {
     return { service, repositories, manager, dataSource, email };
   };
 
-  it('creates an active individual account and profile without sending verification email', async () => {
+  it('creates an account pending internal approval and leaves email unverified without sending verification email', async () => {
     const { service, repositories, email } = makeService();
     const userRepo = repositories.get(User)!;
     const profileRepo = repositories.get(UserProfile)!;
@@ -66,10 +66,12 @@ describe('RegistrationService early-launch registration', () => {
 
     expect(userRepo.create).toHaveBeenCalledWith(expect.objectContaining({
       fullName: 'New AssetPass User',
-      status: UserStatus.ACTIVE,
-      approvalStatus: UserApprovalStatus.APPROVED,
-      emailVerifiedAt: expect.any(Date),
+      status: UserStatus.INACTIVE,
+      approvalStatus: UserApprovalStatus.PENDING_REVIEW,
+      emailVerifiedAt: null,
       approvalReviewedByUserId: null,
+      approvalReviewedAt: null,
+      approvalNote: null,
     }));
     expect(profileRepo.create).toHaveBeenCalledWith(expect.objectContaining({
       firstName: 'New',
@@ -88,13 +90,14 @@ describe('RegistrationService early-launch registration', () => {
       outcome: 'success',
       metadata: expect.objectContaining({
         accountType: 'individual',
-        accountStatus: UserStatus.ACTIVE,
-        approvalStatus: UserApprovalStatus.APPROVED,
-        emailVerifiedInternally: true,
+        accountStatus: UserStatus.INACTIVE,
+        approvalStatus: UserApprovalStatus.PENDING_REVIEW,
+        emailVerifiedInternally: false,
         emailVerificationEmailSent: false,
+        emailVerificationRequiredForLogin: false,
       }),
     }));
-    expect(result.message).toContain('you can sign in now');
+    expect(result.message).toContain('after internal review');
   });
 
 
