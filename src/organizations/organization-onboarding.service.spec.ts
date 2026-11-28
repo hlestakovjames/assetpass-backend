@@ -87,7 +87,7 @@ describe('OrganizationOnboardingService', () => {
       appRepo as never,
       email as never,
     );
-    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipRoleRepo, roleRepo, userRepo, auditRepo, sessionRepo, dataSource, email };
+    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipQueryBuilder, membershipRoleRepo, roleRepo, userRepo, auditRepo, sessionRepo, dataSource, email };
   }
 
   it('accepts an organization application without creating a personal user account', async () => {
@@ -187,7 +187,7 @@ describe('OrganizationOnboardingService', () => {
     expect(result.status).toBe('active');
   });
   it('preserves the original joined_at and revokes old grants when a removed membership rejoins through claim', async () => {
-    const { service, manager, dataSource, appRepo, userRepo, orgRepo, membershipRepo, membershipRoleRepo, auditRepo, repos } = setup();
+    const { service, manager, dataSource, appRepo, userRepo, orgRepo, membershipQueryBuilder, membershipRoleRepo, auditRepo, repos } = setup();
     const firstJoinedAt = new Date('2023-09-14T00:00:00.000Z');
     dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
     manager.query.mockResolvedValue([{ id: application.id }]);
@@ -212,7 +212,6 @@ describe('OrganizationOnboardingService', () => {
       status: 'removed',
       joinedAt: firstJoinedAt,
     };
-    const membershipQueryBuilder = (membershipRepo.createQueryBuilder as jest.Mock).mock.results[0]?.value;
     membershipQueryBuilder.getOne.mockResolvedValue(removedMembership);
 
     const result = await service.claimWithToken('user-1', 'c'.repeat(43));
