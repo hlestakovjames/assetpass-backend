@@ -35,7 +35,7 @@ export class ApplicationEntitlementsService {
        ORDER BY application_key ASC`,
       [userId],
     );
-    const active = new Map(rows.map((row) => [row.application_key, row.granted_at]));
+    const active = new Map<string, Date | string>(rows.map((row): [string, Date | string] => [row.application_key, row.granted_at]));
     return {
       assetpassApp: {
         active: active.has('assetpass_app'),
