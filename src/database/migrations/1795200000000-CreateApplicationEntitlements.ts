@@ -140,14 +140,9 @@ export class CreateApplicationEntitlements1795200000000
           RAISE EXCEPTION 'application entitlement history cannot be deleted'
             USING ERRCODE = '55000';
         END IF;
-        IF NEW."id" IS DISTINCT FROM OLD."id"
-          OR NEW."user_id" IS DISTINCT FROM OLD."user_id"
-          OR NEW."organization_id" IS DISTINCT FROM OLD."organization_id"
-          OR NEW."application_key" IS DISTINCT FROM OLD."application_key"
-          OR NEW."granted_at" IS DISTINCT FROM OLD."granted_at"
-          OR NEW."granted_by_user_id" IS DISTINCT FROM OLD."granted_by_user_id"
-          OR NEW."grant_source" IS DISTINCT FROM OLD."grant_source"
-          OR NEW."created_at" IS DISTINCT FROM OLD."created_at" THEN
+        IF (to_jsonb(NEW) - 'revoked_at' - 'revoked_by_user_id' - 'revocation_reason')
+          IS DISTINCT FROM
+           (to_jsonb(OLD) - 'revoked_at' - 'revoked_by_user_id' - 'revocation_reason') THEN
           RAISE EXCEPTION 'application entitlement grant identity is immutable'
             USING ERRCODE = '55000';
         END IF;
