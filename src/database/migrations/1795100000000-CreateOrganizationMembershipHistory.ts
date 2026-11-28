@@ -78,6 +78,18 @@ export class CreateOrganizationMembershipHistory1795100000000
     `);
 
     await queryRunner.query(`
+      UPDATE "organization_membership_roles" assignment
+      SET
+        "revoked_at" = now(),
+        "revoked_by_user_id" = NULL,
+        "revocation_reason" = 'Legacy assignment closed at DBR-06 migration cutover because the membership was already removed or rejected.'
+      FROM "organization_memberships" membership
+      WHERE assignment."membership_id" = membership."id"
+        AND membership."status" IN ('removed', 'rejected')
+        AND assignment."revoked_at" IS NULL
+    `);
+
+    await queryRunner.query(`
       CREATE TABLE "organization_membership_events" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "event_sequence" bigserial NOT NULL UNIQUE,
