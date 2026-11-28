@@ -174,6 +174,37 @@ export class ApplicationEntitlementsService {
     });
   }
 
+  async revokeOrganizationMarketplace(actorUserId: string, organizationId: string, reasonInput: unknown) {
+    const reason = this.requireReason(reasonInput);
+    return this.dataSource.transaction(async (manager) => {
+      await this.assertOrganizationPermission(manager, actorUserId, organizationId);
+      const rows = await manager.query(
+        `UPDATE organization_application_entitlements
+         SET revoked_at = NOW(), revoked_by_user_id = $1, revocation_reason = $2
+         WHERE organization_id = $3 AND application_key = 'marketplace'
+           AND revoked_at IS NULL
+         RETURNING id`,
+        [actorUserId, reason, organizationId],
+      ) as Array<{ id: string }>;
+      if (!rows.length) {
+        throw new NotFoundException('No active organization Marketplace entitlement exists.');
+      }
+      await manager.query(
+        `UPDATE organization_marketplace_representatives
+         SET revoked_at = NOW(), revoked_by_user_id = $1,
+             revocation_reason = 'Organization Marketplace participation revoked: ' || $2
+         WHERE organization_id = $3 AND revoked_at IS NULL`,
+        [actorUserId, reason, organizationId],
+      );
+      await this.writeAudit(manager, actorUserId, 'marketplace.organization.revoked', 'organization_application_entitlement', rows[0].id, {
+        organizationId,
+        application: 'marketplace',
+        reason,
+      });
+      return { active: false, revoked: true };
+    });
+  }
+
   async grantOrganizationRepresentative(
     actorUserId: string,
     organizationId: string,
