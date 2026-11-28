@@ -4,7 +4,7 @@ import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { appendOrganizationMembershipEvent } from './organization-membership-events';
 import { OrganizationMembershipEvent, OrganizationMembershipEventType } from './entities/organization-membership-event.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
-import { Permission } from '../access-control/entities/permission.entity';
+import { Permission, PermissionScope } from '../access-control/entities/permission.entity';
 import { OrganizationMembershipRole } from '../access-control/entities/organization-membership-role.entity';
 import { OrganizationRole } from '../access-control/entities/organization-role.entity';
 import { OrganizationRolePermission } from '../access-control/entities/organization-role-permission.entity';
@@ -112,7 +112,7 @@ export class OrganizationsService {
           .getMany()
       : [];
     const grants = roles.length ? await this.rolePermissions.find({ where: { roleId: In(roles.map((item) => item.id)) } }) : [];
-    const permissionRecords = grants.length ? await this.permissions.find({ where: { id: In(grants.map((item) => item.permissionId)) } }) : [];
+    const permissionRecords = grants.length ? await this.permissions.find({ where: { id: In(grants.map((item) => item.permissionId)), scope: PermissionScope.ORGANIZATION } }) : [];
     return {
       organization,
       membership: { id: membership.id, status: membership.status, joinedAt: membership.joinedAt },
