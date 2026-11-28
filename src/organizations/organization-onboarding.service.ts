@@ -370,7 +370,7 @@ export class OrganizationOnboardingService {
       }
       let membership: OrganizationMembership;
       const previousStatus = existing?.status ?? null;
-      const isRejoin = existing !== null;
+      const isRejoin = Boolean(existing);
       if (existing) {
         membership = await membershipRepo.save({
           ...existing,
