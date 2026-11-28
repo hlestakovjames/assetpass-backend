@@ -57,7 +57,11 @@ export class AuthController {
     // throttling only when a trusted proxy chain is explicitly configured.
     return {
       ...metadata,
-      sourceIp: process.env.NODE_ENV === 'production' ? null : metadata.sourceIp,
+      sourceIp:
+        process.env.NODE_ENV !== 'production' ||
+        Number(process.env.TRUST_PROXY_HOPS ?? 0) > 0
+          ? metadata.sourceIp
+          : null,
     };
   }
 
