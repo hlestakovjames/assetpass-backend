@@ -31,6 +31,8 @@ export interface OrganizationFirstApplicationInput {
   organizationType: string;
   registrationStatus: string;
   establishmentReference?: string;
+  organizationSubtype?: string;
+  governanceDescription?: string;
   legalName?: string;
   industrySector?: string;
   legalStructure?: string;
@@ -487,6 +489,7 @@ function validateApplication(input: OrganizationFirstApplicationInput) {
     registrationNumber: input.registrationNumber,
     registrationAuthority: input.registrationAuthority,
     establishmentReference: input.establishmentReference,
+    organizationSubtype: input.organizationSubtype,
     description: input.description,
   });
   const countryCode = typeof input.countryCode === 'string' && /^[A-Za-z]{2}$/.test(input.countryCode.trim()) ? input.countryCode.trim().toUpperCase() : 'KE';
@@ -502,6 +505,8 @@ function validateApplication(input: OrganizationFirstApplicationInput) {
       registrationStatus: registrationRules.registrationStatus,
       organizationRulesVersion: registrationRules.rulesVersion,
       establishmentReference: registrationRules.establishmentReference,
+      organizationSubtype: optional(input.organizationSubtype, 120),
+      governanceDescription: optional(input.governanceDescription, 500),
       legalName: optional(input.legalName, 250),
       industrySector: optional(input.industrySector, 120),
       legalStructure: registrationRules.legalStructure,
