@@ -158,6 +158,7 @@ export class OrganizationsService {
   }
 
   async inviteMember(actorUserId: string, organizationId: string, input: InviteOrganizationMemberInput) {
+    await this.assertPermission(actorUserId, organizationId, 'organization.members.manage');
     if (!input || typeof input.email !== 'string' || !['organization_admin', 'asset_manager', 'organization_member'].includes(input.roleKey)) {
       throw new BadRequestException('Provide a valid user email and organization role.');
     }
