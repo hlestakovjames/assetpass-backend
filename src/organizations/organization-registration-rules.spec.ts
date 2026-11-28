@@ -69,6 +69,13 @@ describe('organization registration rules', () => {
     })).not.toThrow();
   });
 
+  it('requires government institutions to provide a formal registration or establishment basis', () => {
+    expect(() => validateOrganizationRegistrationDetails({
+      organizationType: 'Government institution',
+      registrationStatus: 'not_registered',
+    })).toThrow('must provide its registration details');
+  });
+
   it('limits established-by-law status to public institutions and requires its reference', () => {
     expect(() => validateOrganizationRegistrationDetails({
       organizationType: 'Government institution',
