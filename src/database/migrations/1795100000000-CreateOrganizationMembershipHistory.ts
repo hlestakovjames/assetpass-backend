@@ -42,6 +42,42 @@ export class CreateOrganizationMembershipHistory1795100000000
     `);
 
     await queryRunner.query(`
+      ALTER TABLE "organization_membership_roles"
+      ADD CONSTRAINT "CHK_membership_role_revocation_after_assignment"
+      CHECK ("revoked_at" IS NULL OR "revoked_at" >= "assigned_at")
+    `);
+    await queryRunner.query(`
+      CREATE FUNCTION "guard_organization_membership_role_history"()
+      RETURNS trigger AS $
+      BEGIN
+        IF TG_OP = 'DELETE' THEN
+          RAISE EXCEPTION 'organization_membership_roles history cannot be deleted'
+            USING ERRCODE = '55000';
+        END IF;
+        IF NEW."membership_id" IS DISTINCT FROM OLD."membership_id"
+          OR NEW."role_id" IS DISTINCT FROM OLD."role_id"
+          OR NEW."assigned_by_user_id" IS DISTINCT FROM OLD."assigned_by_user_id"
+          OR NEW."assigned_at" IS DISTINCT FROM OLD."assigned_at" THEN
+          RAISE EXCEPTION 'organization_membership_roles assignment identity is immutable'
+            USING ERRCODE = '55000';
+        END IF;
+        IF OLD."revoked_at" IS NOT NULL
+          OR NEW."revoked_at" IS NULL
+          OR NEW."revocation_reason" IS NULL THEN
+          RAISE EXCEPTION 'role assignments may be revoked once and cannot be reactivated or rewritten'
+            USING ERRCODE = '55000';
+        END IF;
+        RETURN NEW;
+      END;
+      $ LANGUAGE plpgsql
+    `);
+    await queryRunner.query(`
+      CREATE TRIGGER "trg_organization_membership_roles_history_guard"
+      BEFORE UPDATE OR DELETE ON "organization_membership_roles"
+      FOR EACH ROW EXECUTE FUNCTION "guard_organization_membership_role_history"()
+    `);
+
+    await queryRunner.query(`
       CREATE TABLE "organization_membership_events" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "event_sequence" bigserial NOT NULL UNIQUE,
@@ -114,6 +150,9 @@ export class CreateOrganizationMembershipHistory1795100000000
     await queryRunner.query(`DROP TABLE "organization_membership_events"`);
     await queryRunner.query(`DROP TYPE "organization_membership_event_type"`);
 
+    await queryRunner.query(`DROP TRIGGER "trg_organization_membership_roles_history_guard" ON "organization_membership_roles"`);
+    await queryRunner.query(`DROP FUNCTION "guard_organization_membership_role_history"()`);
+    await queryRunner.query(`ALTER TABLE "organization_membership_roles" DROP CONSTRAINT "CHK_membership_role_revocation_after_assignment"`);
     await queryRunner.query(`DROP INDEX "idx_membership_role_assignment_active"`);
     await queryRunner.query(`
       DROP INDEX "uq_membership_role_assignment_active"
