@@ -129,7 +129,7 @@ describe('IdentityResolutionService', () => {
     expect(result.platformRoles).toEqual(['Central Platform Administrator']);
     expect(result.platformPermissions).toEqual(['platform.users.read']);
     expect(query.mock.calls[4][0]).toContain('INNER JOIN platform_role_permissions');
-    expect(query.mock.calls[2][0]).toContain("pr.role = 'Central Platform Administrator'");
+    expect(query.mock.calls[4][0]).toContain("pr.role = 'Central Platform Administrator'");
     expect(query.mock.calls[4][1]).toEqual([user.id]);
   });
 
