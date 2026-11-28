@@ -127,6 +127,47 @@ export class EmailDeliveryService {
 
     throw new ServiceUnavailableException('The configured email provider is not supported.');
   }
+
+  async sendPasswordResetEmail(email: string, fullName: string, token: string): Promise<void> {
+    const provider = (this.config.get<string>('EMAIL_PROVIDER') ?? 'brevo').toLowerCase();
+    const appOrigin = this.config.getOrThrow<string>('APP_ORIGIN');
+    const resetUrl = new URL('/reset-password', appOrigin);
+    // Keep the one-time secret in the URL fragment so it is not sent in HTTP
+    // requests or Referer headers before the reset page consumes it.
+    resetUrl.hash = token;
+    const textContent = `Hello ${fullName},\n\nA password reset was requested for your AssetPass account. Use this one-time link within 15 minutes:\n${resetUrl.toString()}\n\nIf you did not request this reset, ignore this email. Your password and account status have not been changed.\n\nAssetPass`;
+    const htmlContent = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#123047"><h2>Reset your AssetPass password</h2><p>Hello ${escapeHtml(fullName)},</p><p>A password reset was requested for your AssetPass account. Use the one-time link below within <strong>15 minutes</strong>.</p><p><a href="${escapeHtml(resetUrl.toString())}" style="display:inline-block;padding:12px 20px;background:#123047;color:#fff;text-decoration:none;border-radius:6px">Reset password</a></p><p>If you did not request this reset, ignore this email. Your password and account status have not been changed.</p><p>AssetPass</p></div>`;
+
+    if (provider === 'brevo') {
+      const apiKey = this.config.get<string>('BREVO_API_KEY');
+      const senderEmail = this.config.get<string>('BREVO_SENDER_EMAIL');
+      const senderName = this.config.get<string>('BREVO_SENDER_NAME') ?? 'AssetPass';
+      if (!apiKey || !senderEmail) throw new ServiceUnavailableException('Email delivery is not configured. Please try again later.');
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': apiKey, 'Content-Type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ sender: { name: senderName, email: senderEmail }, to: [{ email }], subject: 'Reset your AssetPass password', textContent, htmlContent }),
+      });
+      if (!response.ok) throw new ServiceUnavailableException('We could not send the password reset email. Please try again later.');
+      return;
+    }
+
+    if (provider === 'resend') {
+      const apiKey = this.config.get<string>('RESEND_API_KEY');
+      const from = this.config.get<string>('EMAIL_FROM');
+      if (!apiKey || !from) throw new ServiceUnavailableException('Email delivery is not configured. Please try again later.');
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to: [email], subject: 'Reset your AssetPass password', text: textContent, html: htmlContent }),
+      });
+      if (!response.ok) throw new ServiceUnavailableException('We could not send the password reset email. Please try again later.');
+      return;
+    }
+
+    throw new ServiceUnavailableException('The configured email provider is not supported.');
+  }
+
 }
 
 function escapeHtml(value: string): string {
