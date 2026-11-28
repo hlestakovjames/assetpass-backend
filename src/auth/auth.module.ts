@@ -11,6 +11,8 @@ import { Organization } from '../organizations/entities/organization.entity';
 import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { AuthSession } from './auth-session.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { PasswordResetRequestEvent } from './entities/password-reset-request-event.entity';
 import { EmailVerification } from './email-verification.entity';
 import { AccessTokenService } from './access-token.service';
 import { AuthController } from './controllers/auth.controller';
@@ -24,6 +26,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenService } from './refresh-token.service';
 import { AuthCookies } from './utils/auth-cookies';
+import { PasswordRecoveryService } from './password-recovery.service';
 
 @Module({
   imports: [
@@ -46,6 +49,8 @@ import { AuthCookies } from './utils/auth-cookies';
     TypeOrmModule.forFeature([
       AuthSession,
       EmailVerification,
+      PasswordResetToken,
+      PasswordResetRequestEvent,
       UserProfile,
       UserConsent,
       Organization,
@@ -56,6 +61,7 @@ import { AuthCookies } from './utils/auth-cookies';
   controllers: [AuthController],
   providers: [
     AuthService,
+    PasswordRecoveryService,
     IdentityResolutionService,
     RegistrationService,
     EmailDeliveryService,
@@ -69,6 +75,7 @@ import { AuthCookies } from './utils/auth-cookies';
   ],
   exports: [
     AuthService,
+    PasswordRecoveryService,
     RegistrationService,
     RefreshTokenService,
     AccessTokenService,
