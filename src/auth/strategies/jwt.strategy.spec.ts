@@ -2,7 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 
-import { User, UserStatus } from '../../identity/entities/user.entity';
+import { User, UserApprovalStatus, UserStatus } from '../../identity/entities/user.entity';
 import { AuthSession } from '../auth-session.entity';
 import { JwtAccessPayload } from '../interfaces/jwt-access-payload.interface';
 import { JwtStrategy } from './jwt.strategy';
@@ -18,6 +18,7 @@ describe('JwtStrategy', () => {
     fullName: 'Platform Owner',
     email: 'owner@example.com',
     status: UserStatus.ACTIVE,
+    approvalStatus: UserApprovalStatus.APPROVED,
     deactivatedAt: null,
   };
 
@@ -81,6 +82,7 @@ describe('JwtStrategy', () => {
         fullName: true,
         email: true,
         status: true,
+        approvalStatus: true,
         deactivatedAt: true,
       },
     });
@@ -137,6 +139,22 @@ describe('JwtStrategy', () => {
     usersRepository.findOne.mockResolvedValue({
       ...activeUser,
       status: UserStatus.SUSPENDED,
+    } as User);
+
+    await expect(strategy.validate(validPayload)).rejects.toThrow(
+      UnauthorizedException,
+    );
+
+    expect(sessionsRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    UserApprovalStatus.PENDING_REVIEW,
+    UserApprovalStatus.REJECTED,
+  ])('rejects an account with approval status %s', async (approvalStatus) => {
+    usersRepository.findOne.mockResolvedValue({
+      ...activeUser,
+      approvalStatus,
     } as User);
 
     await expect(strategy.validate(validPayload)).rejects.toThrow(
