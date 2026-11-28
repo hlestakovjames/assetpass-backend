@@ -55,7 +55,7 @@ Copy the example environment file and set local values:
 cp .env.example .env
 ```
 
-At minimum, configure a local `DATABASE_URL`, a unique `JWT_ACCESS_SECRET`, `APP_ORIGIN`, the exact `TRUSTED_ORIGINS` for the App and Marketplace BFF origins, and an email provider configuration appropriate to your environment. Never commit real credentials or production secrets.
+At minimum, configure a local `DATABASE_URL`, a unique `JWT_ACCESS_SECRET`, `APP_ORIGIN`, the exact `TRUSTED_ORIGINS` for the App and Marketplace BFF origins, `TRUST_PROXY_HOPS` set only to the verified reverse-proxy hop count (default `0`), and an email provider configuration appropriate to your environment. Never commit real credentials or production secrets.
 
 Inspect pending migrations before applying them:
 
@@ -87,7 +87,7 @@ Both operations require an authenticated session. The actor is derived from the 
 
 The Phase 1 password-recovery implementation adds:
 
-- `POST /api/v1/auth/password-reset/request` — always returns the same generic response whether or not the account exists. Requests are throttled by a keyed email hash and source IP.
+- `POST /api/v1/auth/password-reset/request` — always returns the same generic response whether or not the account exists. Requests are throttled by a keyed email hash; an IP throttle is additionally applied only when the source IP is obtained through an explicitly configured trusted proxy chain.
 - `POST /api/v1/auth/password-reset/confirm` — consumes a high-entropy, 15-minute, single-use reset token and updates the password atomically.
 - `POST /api/v1/auth/change-password` — requires a valid access token, browser origin and CSRF token, and verifies the current password before changing it.
 
