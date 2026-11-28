@@ -8,7 +8,7 @@ import {
 
 @Entity('password_reset_request_events')
 @Index('idx_password_reset_request_email_time', ['emailHash', 'createdAt'])
-@Index('idx_password_reset_request_ip_time', ['requestedIp', 'createdAt'])
+@Index('idx_password_reset_request_ip_time', ['requestedIp', 'createdAt'], { where: '"requested_ip" IS NOT NULL' })
 export class PasswordResetRequestEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
