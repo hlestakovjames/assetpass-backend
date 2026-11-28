@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { appendOrganizationMembershipEvent } from './organization-membership-events';
-import { OrganizationMembershipEventType } from './entities/organization-membership-event.entity';
+import { OrganizationMembershipEvent, OrganizationMembershipEventType } from './entities/organization-membership-event.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { Permission } from '../access-control/entities/permission.entity';
 import { OrganizationMembershipRole } from '../access-control/entities/organization-membership-role.entity';
@@ -505,22 +505,20 @@ export class OrganizationsService {
         createdAt: membership.createdAt,
       },
       events,
-      roleAssignments: assignments
-        .map((assignment) => {
-          const role = roleMap.get(assignment.roleId);
-          if (!role) return null;
-          return {
-            id: assignment.id,
-            role: { id: role.id, key: role.key, name: role.name },
-            assignedByUserId: assignment.assignedByUserId,
-            assignedAt: assignment.assignedAt,
-            revokedByUserId: assignment.revokedByUserId,
-            revokedAt: assignment.revokedAt,
-            revocationReason: assignment.revocationReason,
-            isActive: assignment.revokedAt === null,
-          };
-        })
-        .filter((assignment): assignment is NonNullable<typeof assignment> => assignment !== null),
+      roleAssignments: assignments.flatMap((assignment) => {
+        const role = roleMap.get(assignment.roleId);
+        if (!role) return [];
+        return [{
+          id: assignment.id,
+          role: { id: role.id, key: role.key, name: role.name },
+          assignedByUserId: assignment.assignedByUserId,
+          assignedAt: assignment.assignedAt,
+          revokedByUserId: assignment.revokedByUserId,
+          revokedAt: assignment.revokedAt,
+          revocationReason: assignment.revocationReason,
+          isActive: assignment.revokedAt === null,
+        }];
+      }),
     };
   }
 
