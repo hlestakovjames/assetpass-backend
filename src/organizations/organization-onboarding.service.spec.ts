@@ -6,6 +6,7 @@ import { OrganizationMembershipRole } from '../access-control/entities/organizat
 import { User } from '../identity/entities/user.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership } from './entities/organization-membership.entity';
+import { OrganizationMembershipEvent } from './entities/organization-membership-event.entity';
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
 import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
@@ -43,8 +44,19 @@ describe('OrganizationOnboardingService', () => {
   function setup() {
     const appRepo = { save: jest.fn(async (value) => ({ ...value, id: value.id ?? 'application-1' })), findOneBy: jest.fn() };
     const orgRepo = { save: jest.fn(async (value) => ({ ...value, id: 'organization-1', status: 'pending_review' })), findOneBy: jest.fn() };
-    const membershipRepo = { findOneBy: jest.fn(), save: jest.fn(async (value) => ({ ...value, id: 'membership-1' })) };
-    const membershipRoleRepo = { save: jest.fn(), delete: jest.fn() };
+    const membershipQueryBuilder = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    const membershipRepo = {
+      findOneBy: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(membershipQueryBuilder),
+      save: jest.fn(async (value) => ({ ...value, id: 'membership-1' })),
+    };
+    const membershipRoleRepo = { save: jest.fn(), update: jest.fn(), delete: jest.fn() };
+    const membershipEventRepo = { create: jest.fn((value) => value), save: jest.fn(async (value) => value) };
     const roleRepo = { findOne: jest.fn().mockResolvedValue({ id: 'owner-role' }) };
     const userRepo = { findOneBy: jest.fn() };
     const auditRepo = { save: jest.fn() };
@@ -55,6 +67,7 @@ describe('OrganizationOnboardingService', () => {
       [Organization, orgRepo],
       [OrganizationMembership, membershipRepo],
       [OrganizationMembershipRole, membershipRoleRepo],
+      [OrganizationMembershipEvent, membershipEventRepo],
       [OrganizationRole, roleRepo],
       [User, userRepo],
       [PlatformAuditLog, auditRepo],
@@ -163,7 +176,7 @@ describe('OrganizationOnboardingService', () => {
       organizationId: 'organization-1', userId: 'user-1', status: 'active',
     }));
     expect(membershipRoleRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      membershipId: 'membership-1', roleId: 'owner-role', assignedByUserId: null,
+      membershipId: 'membership-1', roleId: 'owner-role', assignedByUserId: 'user-1',
     }));
     expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       status: OrganizationOnboardingStatus.CLAIMED, claimedByUserId: 'user-1',
