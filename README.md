@@ -138,7 +138,7 @@ See [Organisation-First Onboarding](docs/organization-first-onboarding.md) for t
 
 1. Complete CI and review of the Individual Workspace lifecycle and session-scoped context selection.
 2. Complete CI and review of the account-free organisation application, representative verification, platform review and post-approval claim-code flow.
-3. Complete Phase 1 password recovery/change CI, integration and security validation; then continue with private evidence upload/review and multiple-representative authority.
+3. Complete current-head CI, PostgreSQL migration apply/rollback/reapply checks, and cross-application authentication/security validation for the Phase 1 shared App and Marketplace browser-authentication integration. Do not promote the password-recovery migration or deploy until those checks pass; then continue with private evidence upload/review and multiple-representative authority.
 4. Review and apply the Global Administrator role migration only after the full PR chain is merged and the production migration plan is explicitly approved.
 5. Platform-managed asset taxonomy and expanded lifecycle APIs.
 6. Marketplace domain, public discovery and transaction boundaries.
