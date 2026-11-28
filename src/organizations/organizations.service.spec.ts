@@ -90,9 +90,20 @@ describe('OrganizationsService organization authorization and membership history
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(membership),
     };
+    const permissionBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(1),
+    };
     const membershipRepository = {
-      createQueryBuilder: jest.fn().mockReturnValue(lockQueryBuilder),
+      createQueryBuilder: jest.fn()
+        .mockReturnValueOnce(permissionBuilder)
+        .mockReturnValue(lockQueryBuilder),
       save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const organizationRepository = {
+      findOneBy: jest.fn().mockResolvedValue({ id: organizationId, status: OrganizationStatus.ACTIVE }),
     };
     const assignmentRepository = {
       find: jest.fn().mockResolvedValue([]),
@@ -106,6 +117,7 @@ describe('OrganizationsService organization authorization and membership history
     const auditRepository = { save: jest.fn().mockResolvedValue(undefined) };
     const manager = {
       getRepository: jest.fn((entity) => {
+        if (entity === Organization) return organizationRepository;
         if (entity === OrganizationMembership) return membershipRepository;
         if (entity === OrganizationMembershipRole) return assignmentRepository;
         if (entity === OrganizationMembershipEvent) return eventRepository;
@@ -173,7 +185,20 @@ describe('OrganizationsService organization authorization and membership history
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(membership),
     };
-    const membershipRepository = { createQueryBuilder: jest.fn().mockReturnValue(lockQueryBuilder) };
+    const permissionBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(1),
+    };
+    const membershipRepository = {
+      createQueryBuilder: jest.fn()
+        .mockReturnValueOnce(permissionBuilder)
+        .mockReturnValue(lockQueryBuilder),
+    };
+    const organizationRepository = {
+      findOneBy: jest.fn().mockResolvedValue({ id: organizationId, status: OrganizationStatus.ACTIVE }),
+    };
     const oldAssignment = { id: 'old-assignment-id', membershipId: membership.id, roleId: 'old-role-id', revokedAt: null };
     const assignmentRepository = {
       find: jest.fn().mockResolvedValue([oldAssignment]),
@@ -196,6 +221,7 @@ describe('OrganizationsService organization authorization and membership history
     const auditRepository = { save: jest.fn().mockResolvedValue(undefined) };
     const manager = {
       getRepository: jest.fn((entity) => {
+        if (entity === Organization) return organizationRepository;
         if (entity === OrganizationMembership) return membershipRepository;
         if (entity === OrganizationMembershipRole) return assignmentRepository;
         if (entity === OrganizationRole) return roleRepository;
