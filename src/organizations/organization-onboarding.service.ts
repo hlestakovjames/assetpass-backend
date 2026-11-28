@@ -11,6 +11,8 @@ import { OrganizationMembership, OrganizationMembershipStatus } from './entities
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
 import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 import { EmailDeliveryService } from '../auth/email-delivery.service';
+import { appendOrganizationMembershipEvent } from './organization-membership-events';
+import { OrganizationMembershipEventType } from './entities/organization-membership-event.entity';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 const ONBOARDING_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -358,19 +360,33 @@ export class OrganizationOnboardingService {
       });
       if (!organization) throw new ConflictException('The organisation must be approved and active before it can be claimed.');
       const membershipRepo = manager.getRepository(OrganizationMembership);
-      const existing = await membershipRepo.findOneBy({ organizationId, userId });
+      const existing = await membershipRepo.createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.organization_id = :organizationId', { organizationId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .getOne();
       if (existing && existing.status !== OrganizationMembershipStatus.REMOVED) {
         throw new ConflictException('This account already has an organisation membership.');
       }
       let membership: OrganizationMembership;
+      const previousStatus = existing?.status ?? null;
+      const isRejoin = existing !== null;
       if (existing) {
         membership = await membershipRepo.save({
           ...existing,
           status: OrganizationMembershipStatus.ACTIVE,
           invitedByUserId: null,
-          joinedAt: new Date(),
+          // Preserve the first accepted membership date.
+          joinedAt: existing.joinedAt ?? new Date(),
         });
-        await manager.getRepository(OrganizationMembershipRole).delete({ membershipId: membership.id });
+        await manager.getRepository(OrganizationMembershipRole).update(
+          { membershipId: membership.id, revokedAt: IsNull() },
+          {
+            revokedAt: new Date(),
+            revokedByUserId: userId,
+            revocationReason: 'Prior role assignments closed before organization claim rejoin.',
+          },
+        );
       } else {
         membership = await membershipRepo.save({
           organizationId,
@@ -380,6 +396,16 @@ export class OrganizationOnboardingService {
           joinedAt: new Date(),
         });
       }
+      await appendOrganizationMembershipEvent(manager, {
+        membershipId: membership.id,
+        eventType: isRejoin
+          ? OrganizationMembershipEventType.MEMBERSHIP_REJOINED
+          : OrganizationMembershipEventType.MEMBERSHIP_CREATED,
+        previousStatus,
+        newStatus: OrganizationMembershipStatus.ACTIVE,
+        actorUserId: userId,
+        metadata: { source: 'organization_onboarding_claim', applicationId: application.id },
+      });
       const ownerRole = await manager.getRepository(OrganizationRole).findOne({
         where: { organizationId: IsNull(), key: 'organization_owner', isActive: true },
       });
@@ -387,7 +413,7 @@ export class OrganizationOnboardingService {
       await manager.getRepository(OrganizationMembershipRole).save({
         membershipId: membership.id,
         roleId: ownerRole.id,
-        assignedByUserId: null,
+        assignedByUserId: userId,
       });
       application.status = OrganizationOnboardingStatus.CLAIMED;
       application.claimedByUserId = userId;
