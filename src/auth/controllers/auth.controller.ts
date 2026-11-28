@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Post,
@@ -17,6 +18,7 @@ import type { Request, Response } from 'express';
 import { AuthenticatedIdentity, AuthService } from '../auth.service';
 import { IdentityResolutionService } from '../identity-resolution.service';
 import { RegistrationService } from '../registration.service';
+import { PasswordRecoveryService } from '../password-recovery.service';
 import { AccessTokenService } from '../access-token.service';
 import { RefreshTokenService } from '../refresh-token.service';
 import { LoginDto } from '../dto/login.dto';
@@ -39,6 +41,7 @@ export class AuthController {
     private readonly authCookies: AuthCookies,
     private readonly config: ConfigService,
     private readonly registrationService: RegistrationService,
+    private readonly passwordRecovery: PasswordRecoveryService,
     private readonly identityResolution: IdentityResolutionService,
   ) {}
 
@@ -46,6 +49,21 @@ export class AuthController {
     return {
       sourceIp: request.ip ?? null,
       userAgent: request.headers['user-agent'] ?? null,
+    };
+  }
+
+  private getPasswordRecoveryMetadata(request: Request) {
+    const metadata = this.getSessionMetadata(request);
+    // Do not treat a hosting-proxy address as the real client IP. Enable IP
+    // throttling only when a trusted proxy chain is explicitly configured.
+    return {
+      ...metadata,
+      sourceIp:
+        process.env.NODE_ENV !== 'production' ||
+        Number(process.env.TRUST_PROXY_HOPS ?? 0) > 0
+          ? metadata.sourceIp
+          : null,
+      clientOrigin: request.headers.origin ?? null,
     };
   }
 
@@ -93,6 +111,55 @@ export class AuthController {
     return this.registrationService.resend(body?.email);
   }
 
+  @Post('password-reset/request')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(BrowserOriginGuard)
+  requestPasswordReset(
+    @Body() body: { email?: unknown },
+    @Req() request: Request,
+  ) {
+    return this.passwordRecovery.requestPasswordReset(
+      body?.email,
+      this.getPasswordRecoveryMetadata(request),
+    );
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BrowserOriginGuard)
+  async confirmPasswordReset(
+    @Body() body: { token?: unknown; newPassword?: unknown },
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.passwordRecovery.resetPassword(
+      body?.token,
+      body?.newPassword,
+      this.getPasswordRecoveryMetadata(request),
+    );
+    this.authCookies.clearAuthCookies(response);
+    response.setHeader('Cache-Control', 'no-store');
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, CookieCsrfGuard)
+  async changePassword(
+    @Body() body: { currentPassword?: unknown; newPassword?: unknown },
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.passwordRecovery.changePassword(
+      request.user.id,
+      body?.currentPassword,
+      body?.newPassword,
+      this.getPasswordRecoveryMetadata(request),
+    );
+    this.authCookies.clearAuthCookies(response);
+    response.setHeader('Cache-Control', 'no-store');
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(BrowserOriginGuard)
@@ -115,7 +182,7 @@ export class AuthController {
     const user = await this.authService.validateCredentials(body.email, body.password);
     const session = await this.refreshTokenService.createSession(
       user.id,
-      this.getSessionMetadata(request),
+      this.getPasswordRecoveryMetadata(request),
     );
     const identity = await this.identityResolution.resolve(user, session.sessionId);
     const accessToken = await this.accessTokenService.issueAccessToken(
@@ -145,7 +212,7 @@ export class AuthController {
     try {
       const rotated = await this.refreshTokenService.rotate(
         refreshToken,
-        this.getSessionMetadata(request),
+        this.getPasswordRecoveryMetadata(request),
       );
       const accessToken = await this.accessTokenService.issueAccessToken(
         rotated.user.id,

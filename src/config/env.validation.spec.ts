@@ -8,6 +8,31 @@ describe('validateEnvironment trusted origins', () => {
     APP_ORIGIN: 'http://localhost:3000',
   };
 
+
+  it('defaults trusted proxy hops to zero', () => {
+    const result = validateEnvironment(baseEnvironment);
+
+    expect(result.TRUST_PROXY_HOPS).toBe(0);
+  });
+
+  it('accepts an explicitly configured trusted proxy hop count', () => {
+    const result = validateEnvironment({
+      ...baseEnvironment,
+      TRUST_PROXY_HOPS: '1',
+    });
+
+    expect(result.TRUST_PROXY_HOPS).toBe(1);
+  });
+
+  it('rejects invalid trusted proxy hop counts', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        TRUST_PROXY_HOPS: 'all',
+      }),
+    ).toThrow(/TRUST_PROXY_HOPS must be an integer/i);
+  });
+
   it('uses APP_ORIGIN as the default trusted origin', () => {
     const result = validateEnvironment(baseEnvironment);
 

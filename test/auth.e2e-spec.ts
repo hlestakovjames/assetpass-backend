@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { AuthCookies } from '../src/auth/utils/auth-cookies';
 import { IdentityResolutionService } from '../src/auth/identity-resolution.service';
 import { RegistrationService } from '../src/auth/registration.service';
+import { PasswordRecoveryService } from '../src/auth/password-recovery.service';
 import { getTrustedOrigins } from '../src/auth/utils/trusted-origins';
 
 const TRUSTED_ORIGIN = 'http://localhost:3000';
@@ -66,6 +67,11 @@ describe('Authentication HTTP integration (e2e)', () => {
 
   const identityResolution = { resolve: jest.fn() };
   const registrationService = { register: jest.fn(), verify: jest.fn(), resend: jest.fn() };
+  const passwordRecoveryService = {
+    requestPasswordReset: jest.fn(),
+    resetPassword: jest.fn(),
+    changePassword: jest.fn(),
+  };
 
   const refreshTokenService = {
     createSession: jest.fn(),
@@ -107,6 +113,7 @@ describe('Authentication HTTP integration (e2e)', () => {
         { provide: RefreshTokenService, useValue: refreshTokenService },
         { provide: IdentityResolutionService, useValue: identityResolution },
         { provide: RegistrationService, useValue: registrationService },
+        { provide: PasswordRecoveryService, useValue: passwordRecoveryService },
         AuthCookies,
         BrowserOriginGuard,
         CookieCsrfGuard,
@@ -159,6 +166,11 @@ describe('Authentication HTTP integration (e2e)', () => {
     });
     refreshTokenService.revoke.mockResolvedValue(undefined);
     refreshTokenService.revokeAllForUser.mockResolvedValue(undefined);
+    passwordRecoveryService.requestPasswordReset.mockResolvedValue({
+      message: 'If an account exists for that email address, password reset instructions will be sent shortly.',
+    });
+    passwordRecoveryService.resetPassword.mockResolvedValue(undefined);
+    passwordRecoveryService.changePassword.mockResolvedValue(undefined);
   });
 
   afterAll(async () => {
@@ -448,6 +460,105 @@ describe('Authentication HTTP integration (e2e)', () => {
       await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .expect(401);
+    });
+  });
+
+
+  describe('POST /api/v1/auth/password-reset/request', () => {
+    it('returns the generic response and does not reveal account existence', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/password-reset/request')
+        .set('Origin', TRUSTED_ORIGIN)
+        .send({ email: 'unknown@example.com' })
+        .expect(202);
+
+      expect(response.body.message).toContain('If an account exists');
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(passwordRecoveryService.requestPasswordReset).toHaveBeenCalledWith(
+        'unknown@example.com',
+        expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
+      );
+    });
+
+    it('rejects an untrusted origin', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/password-reset/request')
+        .set('Origin', UNTRUSTED_ORIGIN)
+        .send({ email: 'person@example.com' })
+        .expect(403);
+
+      expect(passwordRecoveryService.requestPasswordReset).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/auth/password-reset/confirm', () => {
+    it('consumes a reset token and clears any existing browser cookies', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/password-reset/confirm')
+        .set('Origin', TRUSTED_ORIGIN)
+        .send({ token: 'a'.repeat(43), newPassword: 'a-strong-new-password-123' })
+        .expect(204);
+
+      expect(passwordRecoveryService.resetPassword).toHaveBeenCalledWith(
+        'a'.repeat(43),
+        'a-strong-new-password-123',
+        expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
+      );
+      const cookies = response.headers['set-cookie'] as string[];
+      expect(cookies.join(';')).toContain(`${refreshCookie}=;`);
+      expect(cookies.join(';')).toContain(`${csrfCookie}=;`);
+    });
+  });
+
+  describe('POST /api/v1/auth/change-password', () => {
+    it('requires authentication and CSRF, then changes the password', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Origin', TRUSTED_ORIGIN)
+        .set('Authorization', 'Bearer integration-access-token')
+        .set('Cookie', `${csrfCookie}=${CSRF_TOKEN}`)
+        .set('X-CSRF-Token', CSRF_TOKEN)
+        .send({
+          currentPassword: 'current-password',
+          newPassword: 'a-strong-new-password-123',
+        })
+        .expect(204);
+
+      expect(passwordRecoveryService.changePassword).toHaveBeenCalledWith(
+        identity.id,
+        'current-password',
+        'a-strong-new-password-123',
+        expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
+      );
+    });
+
+    it('rejects a missing CSRF token', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Origin', TRUSTED_ORIGIN)
+        .set('Authorization', 'Bearer integration-access-token')
+        .send({
+          currentPassword: 'current-password',
+          newPassword: 'a-strong-new-password-123',
+        })
+        .expect(403);
+
+      expect(passwordRecoveryService.changePassword).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Origin', TRUSTED_ORIGIN)
+        .set('Cookie', `${csrfCookie}=${CSRF_TOKEN}`)
+        .set('X-CSRF-Token', CSRF_TOKEN)
+        .send({
+          currentPassword: 'current-password',
+          newPassword: 'a-strong-new-password-123',
+        })
+        .expect(401);
+
+      expect(passwordRecoveryService.changePassword).not.toHaveBeenCalled();
     });
   });
 

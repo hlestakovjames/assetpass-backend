@@ -15,7 +15,7 @@ Do not treat every documented domain as an existing module or introduce microser
 ## Current implemented source areas
 
 - `identity`: user identity, profile and consent persistence.
-- `auth`: registration, login, email verification, access tokens, refresh-token sessions, JWT strategy, CSRF/browser-origin protections and email delivery.
+- `auth`: registration, login, email verification, access tokens, rotating refresh-token sessions, JWT strategy, CSRF/browser-origin protections, email delivery and (in the Phase 1 password-recovery branch) password reset/change with session revocation.
 - `platform-governance`: Global Administrator and Central Platform Administrator role hierarchy, plus platform governance/succession foundation. The forward migration preserves existing platform role row IDs, user IDs, grants, assignment/revocation timestamps, governance ownership references, succession history and audit records while mapping legacy role names. The existing Platform Owner becomes the top Global Administrator and retains all registered platform operational permissions. Do not rerun bootstrap or recreate the existing owner account.
 - `access-control`: platform and organisation role/permission persistence and platform permission guard.
 - `organizations`: organisation records, memberships, registration/review and member management foundation.
@@ -55,7 +55,7 @@ Copy the example environment file and set local values:
 cp .env.example .env
 ```
 
-At minimum, configure a local `DATABASE_URL`, a unique `JWT_ACCESS_SECRET`, the API origin and an email provider configuration appropriate to your environment. Never commit real credentials or production secrets.
+At minimum, configure a local `DATABASE_URL`, a unique `JWT_ACCESS_SECRET`, `APP_ORIGIN`, the exact `TRUSTED_ORIGINS` for the App and Marketplace BFF origins, `TRUST_PROXY_HOPS` set only to the verified reverse-proxy hop count (default `0`), and an email provider configuration appropriate to your environment. Never commit real credentials or production secrets.
 
 Inspect pending migrations before applying them:
 
@@ -82,6 +82,20 @@ The API global prefix is `/api/v1`; the default local port is `3001`. The health
 - `POST /api/v1/workspaces/individual/deactivate` — deactivate the authenticated user's Individual Workspace without deleting its workspace record.
 
 Both operations require an authenticated session. The actor is derived from the validated JWT; the API does not accept a client-supplied user ID. Each transition is committed with an audit event. `GET /api/v1/auth/me` and the login identity response include only activated Individual Workspaces in `availableWorkspaces`; `defaultWorkspace` may now be `null`.
+
+### Password recovery and account security API
+
+The Phase 1 password-recovery implementation adds:
+
+- `POST /api/v1/auth/password-reset/request` — always returns the same generic response whether or not the account exists. Requests are throttled by a keyed email hash; an IP throttle is additionally applied only when the source IP is obtained through an explicitly configured trusted proxy chain.
+- `POST /api/v1/auth/password-reset/confirm` — consumes a high-entropy, 15-minute, single-use reset token and updates the password atomically.
+- `POST /api/v1/auth/change-password` — requires a valid access token, browser origin and CSRF token, and verifies the current password before changing it.
+
+Reset tokens are stored only as SHA-256 hashes. Email reset links carry the one-time token in the URL fragment; the reset page consumes and removes the fragment before submitting the token. Reset requests use HMAC-hashed email identifiers in a short-retention rate-limit event table rather than storing raw email addresses in that table. Successful reset/change revokes all refresh sessions and invalidates outstanding reset tokens. A fresh login is required.
+
+Password recovery does not change account approval, activation, suspension, email verification, membership, workspace or permission state. An account that remains pending, rejected, suspended or deactivated remains subject to the ordinary login eligibility checks.
+
+The additive migration `1795000000000-CreatePasswordRecoveryFoundation` creates `password_reset_tokens` and `password_reset_request_events`. It must be reviewed and validated in CI before any production migration is considered. A merge does not execute this migration in production.
 
 ## Validation
 
@@ -124,7 +138,7 @@ See [Organisation-First Onboarding](docs/organization-first-onboarding.md) for t
 
 1. Complete CI and review of the Individual Workspace lifecycle and session-scoped context selection.
 2. Complete CI and review of the account-free organisation application, representative verification, platform review and post-approval claim-code flow.
-3. Add private evidence upload/review, session recovery and multiple-representative authority; the current onboarding session is read-only.
+3. Complete current-head CI, PostgreSQL migration apply/rollback/reapply checks, and cross-application authentication/security validation for the Phase 1 shared App and Marketplace browser-authentication integration. Do not promote the password-recovery migration or deploy until those checks pass; then continue with private evidence upload/review and multiple-representative authority.
 4. Review and apply the Global Administrator role migration only after the full PR chain is merged and the production migration plan is explicitly approved.
 5. Platform-managed asset taxonomy and expanded lifecycle APIs.
 6. Marketplace domain, public discovery and transaction boundaries.

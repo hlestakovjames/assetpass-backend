@@ -10,6 +10,7 @@ import { AccessTokenService } from './access-token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { AuthCookies } from './utils/auth-cookies';
 import { RegistrationService } from './registration.service';
+import { PasswordRecoveryService } from './password-recovery.service';
 import { IdentityResolutionService } from './identity-resolution.service';
 import { UserStatus } from '../identity/entities/user.entity';
 
@@ -32,6 +33,11 @@ describe('AuthController', () => {
   };
 
   let identityResolution: { resolve: jest.Mock };
+  let passwordRecovery: {
+    requestPasswordReset: jest.Mock;
+    resetPassword: jest.Mock;
+    changePassword: jest.Mock;
+  };
 
   let authCookies: {
     refreshCookieName: string;
@@ -122,6 +128,11 @@ describe('AuthController', () => {
     };
 
     identityResolution = { resolve: jest.fn().mockResolvedValue(resolvedIdentity) };
+    passwordRecovery = {
+      requestPasswordReset: jest.fn().mockResolvedValue({ message: 'If an account exists for that email address, password reset instructions will be sent shortly.' }),
+      resetPassword: jest.fn().mockResolvedValue(undefined),
+      changePassword: jest.fn().mockResolvedValue(undefined),
+    };
 
     authCookies = {
       refreshCookieName: 'assetpass_refresh',
@@ -151,6 +162,7 @@ describe('AuthController', () => {
       authCookies as unknown as AuthCookies,
       {} as never,
       {} as unknown as RegistrationService,
+      passwordRecovery as unknown as PasswordRecoveryService,
       identityResolution as unknown as IdentityResolutionService,
     );
   });
@@ -240,6 +252,7 @@ describe('AuthController', () => {
         {
           sourceIp: '127.0.0.1',
           userAgent: 'AssetPass test client',
+          clientOrigin: null,
         },
       );
 
@@ -340,6 +353,7 @@ describe('AuthController', () => {
         {
           sourceIp: '127.0.0.1',
           userAgent: 'AssetPass test client',
+          clientOrigin: null,
         },
       );
 
@@ -464,6 +478,57 @@ describe('AuthController', () => {
       );
 
       expect(result).not.toHaveProperty('passwordHash');
+    });
+  });
+
+  describe('password recovery', () => {
+    it('returns the same generic request response and passes request metadata', async () => {
+      const request = makeRequest();
+      const result = await controller.requestPasswordReset(
+        { email: 'person@example.com' },
+        request,
+      );
+
+      expect(passwordRecovery.requestPasswordReset).toHaveBeenCalledWith(
+        'person@example.com',
+        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client', clientOrigin: null },
+      );
+      expect(result).toEqual({
+        message: 'If an account exists for that email address, password reset instructions will be sent shortly.',
+      });
+    });
+
+    it('consumes a reset token and clears any browser session cookies', async () => {
+      await controller.confirmPasswordReset(
+        { token: 'a'.repeat(43), newPassword: 'a-strong-new-password-123' },
+        makeRequest(),
+        response as unknown as Response,
+      );
+
+      expect(passwordRecovery.resetPassword).toHaveBeenCalledWith(
+        'a'.repeat(43),
+        'a-strong-new-password-123',
+        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client', clientOrigin: null },
+      );
+      expect(authCookies.clearAuthCookies).toHaveBeenCalledWith(response);
+      expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    });
+
+    it('changes a signed-in password and clears all browser session cookies', async () => {
+      await controller.changePassword(
+        { currentPassword: 'current-password', newPassword: 'a-strong-new-password-123' },
+        makeRequest({ user: identity }),
+        response as unknown as Response,
+      );
+
+      expect(passwordRecovery.changePassword).toHaveBeenCalledWith(
+        identity.id,
+        'current-password',
+        'a-strong-new-password-123',
+        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client', clientOrigin: null },
+      );
+      expect(authCookies.clearAuthCookies).toHaveBeenCalledWith(response);
+      expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     });
   });
 });

@@ -4,12 +4,15 @@ on:
   push:
     branches:
       - main
+      - development/architecture-alignment
+      - 'feat/**'
       - feat/organization-identity-rbac
       - development/architecture-alignment
       - feat/global-administrator-role-migration
   pull_request:
     branches:
       - main
+      - development/architecture-alignment
 
 permissions:
   contents: read
@@ -102,6 +105,8 @@ jobs:
         run: npm run migration:run
       - name: Verify applied migrations
         run: npm run migration:show
+      - name: Roll back password recovery foundation migration
+        run: npm run migration:revert
       - name: Roll back Global Administrator role migration
         run: npm run migration:revert
       - name: Roll back organisation onboarding session migration
