@@ -13,7 +13,7 @@ type EntitlementRow = {
   granted_at: Date | string;
 };
 
-type MembershipPermissionRow = { membership_id: string };
+type MembershipPermissionRow = { membership_id: string; role_key: string };
 
 const APPLICATIONS = ['assetpass_app', 'marketplace'] as const;
 const AUTHORITY_BASES = [
@@ -222,6 +222,12 @@ export class ApplicationEntitlementsService {
         actorUserId,
         organizationId,
       );
+      if (
+        (authorityBasis === 'organization_owner_approval' && grantorMembership.role_key !== 'organization_owner') ||
+        (authorityBasis === 'organization_admin_approval' && grantorMembership.role_key !== 'organization_admin')
+      ) {
+        throw new ForbiddenException('The selected authority basis does not match the grantor organization role.');
+      }
       const entitlement = await manager.query(
         `SELECT id FROM organization_application_entitlements
          WHERE organization_id = $1 AND application_key = 'marketplace'
@@ -247,10 +253,19 @@ export class ApplicationEntitlementsService {
         throw new ForbiddenException('The representative must have an approved active account and active membership in this organization.');
       }
 
+      await manager.query(
+        `UPDATE organization_marketplace_representatives
+         SET revoked_at = expires_at,
+             revoked_by_user_id = NULL,
+             revocation_reason = 'Representation grant expired before a new grant was issued.'
+         WHERE organization_id = $1 AND user_id = $2
+           AND revoked_at IS NULL AND expires_at IS NOT NULL
+           AND expires_at <= NOW()`,
+        [organizationId, userId],
+      );
       const current = await manager.query(
         `SELECT id FROM organization_marketplace_representatives
          WHERE organization_id = $1 AND user_id = $2 AND revoked_at IS NULL
-           AND (expires_at IS NULL OR expires_at > NOW())
          LIMIT 1`,
         [organizationId, userId],
       );
@@ -260,13 +275,14 @@ export class ApplicationEntitlementsService {
 
       const inserted = await manager.query(
         `INSERT INTO organization_marketplace_representatives
-           (organization_id, user_id, granted_by_user_id, granted_by_membership_id,
+           (organization_id, user_id, membership_id, granted_by_user_id, granted_by_membership_id,
             authority_basis, authority_reference, effective_at, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id, effective_at, expires_at`,
         [
           organizationId,
           userId,
+          target[0].id,
           actorUserId,
           grantorMembership.membership_id,
           authorityBasis,
@@ -337,7 +353,8 @@ export class ApplicationEntitlementsService {
          AND entitlement.application_key = 'marketplace'
          AND entitlement.revoked_at IS NULL
        INNER JOIN organization_memberships membership
-         ON membership.organization_id = organization.id
+         ON membership.id = representative.membership_id
+         AND membership.organization_id = organization.id
          AND membership.user_id = representative.user_id
          AND membership.status = 'active'
        INNER JOIN users user_account
@@ -361,7 +378,7 @@ export class ApplicationEntitlementsService {
     organizationId: string,
   ): Promise<MembershipPermissionRow> {
     const rows = await manager.query(
-      `SELECT DISTINCT membership.id AS membership_id
+      `SELECT DISTINCT membership.id AS membership_id, role.key AS role_key
        FROM organization_memberships membership
        INNER JOIN organizations organization
          ON organization.id = membership.organization_id
@@ -386,6 +403,11 @@ export class ApplicationEntitlementsService {
          AND user_account.status = 'active'
          AND user_account.approval_status = 'approved'
          AND user_account.deactivated_at IS NULL
+       ORDER BY CASE role.key
+         WHEN 'organization_owner' THEN 0
+         WHEN 'organization_admin' THEN 1
+         ELSE 2
+       END
        LIMIT 1`,
       [organizationId, actorUserId],
     ) as MembershipPermissionRow[];
