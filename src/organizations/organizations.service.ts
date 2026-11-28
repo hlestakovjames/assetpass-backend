@@ -435,7 +435,7 @@ export class OrganizationsService {
       if (!role || (role.organizationId !== null && role.organizationId !== organizationId)) {
         throw new BadRequestException('The selected organization role is not available.');
       }
-      if (currentAssignments.some((assignment) => assignment.roleId === role.id)) {
+      if (currentAssignments.length === 1 && currentAssignments[0].roleId === role.id) {
         return { membershipId, role: { key: role.key, name: role.name } };
       }
       await assignmentRepo.update(
