@@ -72,6 +72,36 @@ export class IdentityResolutionService {
          ORDER BY assigned_at ASC`,
         [user.id],
       ),
+      this.dataSource.query<OrganizationRow[]>(
+        `SELECT
+           m.id AS membership_id,
+           m.status AS membership_status,
+           m.created_at AS membership_created_at,
+           m.joined_at AS joined_at,
+           o.id AS organization_id,
+           o.display_name AS display_name,
+           o.category AS category,
+           o.status AS organization_status,
+           r.key AS role_key,
+           r.name AS role_name,
+           p.key AS permission_key
+         FROM organization_memberships m
+         INNER JOIN organizations o ON o.id = m.organization_id
+         LEFT JOIN organization_membership_roles mr
+           ON mr.membership_id = m.id
+           AND mr.revoked_at IS NULL
+           AND m.status = 'active'
+           AND o.status = 'active'
+         LEFT JOIN organization_roles r
+           ON r.id = mr.role_id AND r.is_active = TRUE
+           AND (r.organization_id IS NULL OR r.organization_id = o.id)
+         LEFT JOIN organization_role_permissions rp ON rp.role_id = r.id
+         LEFT JOIN permissions p
+           ON p.id = rp.permission_id AND p.scope = 'organization'
+         WHERE m.user_id = $1 AND m.status <> 'removed'
+         ORDER BY m.created_at DESC, r.name ASC, p.key ASC`,
+        [user.id],
+      ),
       this.dataSource.query<ApplicationEntitlementRow[]>(
         `SELECT application_key, granted_at
          FROM user_application_entitlements
@@ -105,34 +135,6 @@ export class IdentityResolutionService {
            AND (representative.expires_at IS NULL OR representative.expires_at > NOW())
            AND organization.status = 'active'
          ORDER BY organization.display_name ASC`,
-        [user.id],
-      ),
-      this.dataSource.query<OrganizationRow[]>(
-        `SELECT
-           m.id AS membership_id,
-           m.status AS membership_status,
-           m.created_at AS membership_created_at,
-           m.joined_at AS joined_at,
-           o.id AS organization_id,
-           o.display_name AS display_name,
-           o.category AS category,
-           o.status AS organization_status,
-           r.key AS role_key,
-           r.name AS role_name,
-           p.key AS permission_key
-         FROM organization_memberships m
-         INNER JOIN organizations o ON o.id = m.organization_id
-         LEFT JOIN organization_membership_roles mr
-           ON mr.membership_id = m.id
-           AND m.status = 'active'
-           AND o.status = 'active'
-         LEFT JOIN organization_roles r
-           ON r.id = mr.role_id AND r.is_active = TRUE
-         LEFT JOIN organization_role_permissions rp ON rp.role_id = r.id
-         LEFT JOIN permissions p
-           ON p.id = rp.permission_id AND p.scope = 'organization'
-         WHERE m.user_id = $1 AND m.status <> 'removed'
-         ORDER BY m.created_at DESC, r.name ASC, p.key ASC`,
         [user.id],
       ),
     ]);
