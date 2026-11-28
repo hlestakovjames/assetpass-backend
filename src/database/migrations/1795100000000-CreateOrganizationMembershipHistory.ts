@@ -104,6 +104,7 @@ export class CreateOrganizationMembershipHistory1795100000000
           'source_migration', '1795100000000-CreateOrganizationMembershipHistory'
         )
       FROM "organization_memberships" membership
+      ORDER BY membership."created_at", membership."id"
     `);
   }
 
