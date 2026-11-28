@@ -81,6 +81,13 @@ export function validateEnvironment(config: Environment): Environment {
   const nodeEnv = String(config.NODE_ENV ?? 'development');
 
   const port = parseInteger(config.PORT, 3001, 'PORT', 1, 65535);
+  const trustProxyHops = parseInteger(
+    config.TRUST_PROXY_HOPS,
+    0,
+    'TRUST_PROXY_HOPS',
+    0,
+    5,
+  );
 
   const databaseUrl = String(config.DATABASE_URL ?? '').trim();
 
@@ -178,6 +185,7 @@ export function validateEnvironment(config: Environment): Environment {
     ...config,
     NODE_ENV: nodeEnv,
     PORT: port,
+    TRUST_PROXY_HOPS: trustProxyHops,
     DATABASE_URL: databaseUrl,
     DB_SSL: dbSsl,
     DB_SSL_REJECT_UNAUTHORIZED: dbSslRejectUnauthorized,
