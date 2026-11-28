@@ -139,6 +139,7 @@ describe('PasswordRecoveryService', () => {
       user.email,
       user.fullName,
       expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      undefined,
     );
   });
 
