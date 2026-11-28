@@ -10,6 +10,7 @@ import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import { User } from '../identity/entities/user.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationMembership } from './entities/organization-membership.entity';
+import { OrganizationMembershipEvent } from './entities/organization-membership-event.entity';
 import { OrganizationOnboardingApplication } from './entities/organization-onboarding-application.entity';
 import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 import { OrganizationOnboardingSessionGuard } from './guards/organization-onboarding-session.guard';
@@ -22,7 +23,7 @@ import { OrganizationsService } from './organizations.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Organization, OrganizationMembership, OrganizationOnboardingApplication, OrganizationOnboardingSession, OrganizationRole, OrganizationMembershipRole,
+      Organization, OrganizationMembership, OrganizationMembershipEvent, OrganizationOnboardingApplication, OrganizationOnboardingSession, OrganizationRole, OrganizationMembershipRole,
       OrganizationRolePermission, Permission, User, PlatformAuditLog,
     ]),
     AuthModule,
