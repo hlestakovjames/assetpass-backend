@@ -27,6 +27,7 @@ describe('RegistrationService early-launch registration', () => {
       [EmailVerification, makeRepo()],
     ]);
     const manager = {
+      query: jest.fn().mockResolvedValue([]),
       getRepository: jest.fn((entity) => repositories.get(entity)!),
     };
     const dataSource = {
