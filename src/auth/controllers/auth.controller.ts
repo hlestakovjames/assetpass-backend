@@ -266,8 +266,14 @@ export class AuthController {
   @Post('application-entitlements/marketplace/opt-in')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, CookieCsrfGuard)
-  optInMarketplace(@Req() request: AuthenticatedRequest) {
-    return this.applicationEntitlements.optInIndividualMarketplace(request.user.id);
+  optInMarketplace(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: { acknowledgementAccepted?: unknown },
+  ) {
+    return this.applicationEntitlements.optInIndividualMarketplace(
+      request.user.id,
+      body?.acknowledgementAccepted,
+    );
   }
 
   @Post('application-entitlements/marketplace/revoke')
