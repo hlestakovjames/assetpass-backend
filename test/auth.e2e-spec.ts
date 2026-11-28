@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { AuthCookies } from '../src/auth/utils/auth-cookies';
 import { IdentityResolutionService } from '../src/auth/identity-resolution.service';
 import { RegistrationService } from '../src/auth/registration.service';
+import { PasswordRecoveryService } from '../src/auth/password-recovery.service';
 import { getTrustedOrigins } from '../src/auth/utils/trusted-origins';
 
 const TRUSTED_ORIGIN = 'http://localhost:3000';
@@ -66,6 +67,11 @@ describe('Authentication HTTP integration (e2e)', () => {
 
   const identityResolution = { resolve: jest.fn() };
   const registrationService = { register: jest.fn(), verify: jest.fn(), resend: jest.fn() };
+  const passwordRecoveryService = {
+    requestPasswordReset: jest.fn(),
+    resetPassword: jest.fn(),
+    changePassword: jest.fn(),
+  };
 
   const refreshTokenService = {
     createSession: jest.fn(),
@@ -107,6 +113,7 @@ describe('Authentication HTTP integration (e2e)', () => {
         { provide: RefreshTokenService, useValue: refreshTokenService },
         { provide: IdentityResolutionService, useValue: identityResolution },
         { provide: RegistrationService, useValue: registrationService },
+        { provide: PasswordRecoveryService, useValue: passwordRecoveryService },
         AuthCookies,
         BrowserOriginGuard,
         CookieCsrfGuard,
