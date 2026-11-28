@@ -49,6 +49,26 @@ describe('organization registration rules', () => {
     }
   });
 
+  it('requires a subtype for education and healthcare institutions', () => {
+    expect(() => validateOrganizationRegistrationDetails({
+      organizationType: 'Educational institution',
+      registrationStatus: 'not_registered',
+    })).toThrow('institution or facility subtype');
+
+    expect(() => validateOrganizationRegistrationDetails({
+      organizationType: 'Healthcare institution',
+      registrationStatus: 'registered',
+      registrationNumber: 'HF/123',
+      registrationAuthority: 'Health regulator',
+    })).toThrow('institution or facility subtype');
+
+    expect(() => validateOrganizationRegistrationDetails({
+      organizationType: 'Educational institution',
+      registrationStatus: 'not_registered',
+      organizationSubtype: 'University',
+    })).not.toThrow();
+  });
+
   it('limits established-by-law status to public institutions and requires its reference', () => {
     expect(() => validateOrganizationRegistrationDetails({
       organizationType: 'Government institution',
