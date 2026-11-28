@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
-import { User, UserStatus } from '../identity/entities/user.entity';
+import { User, UserApprovalStatus, UserStatus } from '../identity/entities/user.entity';
 import { PlatformGovernanceState } from './entities/platform-governance-state.entity';
 import { PlatformRole, PlatformRoleName } from './entities/platform-role.entity';
 import { completePlatformOwnerBootstrap } from './platform-owner-bootstrap.service';
@@ -113,6 +113,11 @@ describe('completePlatformOwnerBootstrap', () => {
         email: input.email,
         passwordHash: input.passwordHash,
         status: UserStatus.ACTIVE,
+        approvalStatus: UserApprovalStatus.APPROVED,
+        approvalReviewedByUserId: null,
+        approvalReviewedAt: null,
+        approvalNote: 'Initial Global Administrator established through one-time bootstrap.',
+        emailVerifiedAt: null,
         isFoundingAssetManager: false,
       }),
     );
