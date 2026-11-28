@@ -516,7 +516,10 @@ export class OrganizationsService {
           revokedByUserId: assignment.revokedByUserId,
           revokedAt: assignment.revokedAt,
           revocationReason: assignment.revocationReason,
-          isActive: assignment.revokedAt === null,
+          isRevoked: assignment.revokedAt !== null,
+          isEffective: membership.status === OrganizationMembershipStatus.ACTIVE
+            && role.isActive
+            && assignment.revokedAt === null,
         }];
       }),
     };
