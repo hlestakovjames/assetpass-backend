@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Post,
@@ -111,6 +112,7 @@ export class AuthController {
   }
 
   @Post('password-reset/request')
+  @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(BrowserOriginGuard)
   requestPasswordReset(
