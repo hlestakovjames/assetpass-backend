@@ -475,7 +475,7 @@ describe('Authentication HTTP integration (e2e)', () => {
       expect(response.body.message).toContain('If an account exists');
       expect(passwordRecoveryService.requestPasswordReset).toHaveBeenCalledWith(
         'unknown@example.com',
-        expect.objectContaining({ sourceIp: expect.any(String) }),
+        expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
       );
     });
 
@@ -501,7 +501,7 @@ describe('Authentication HTTP integration (e2e)', () => {
       expect(passwordRecoveryService.resetPassword).toHaveBeenCalledWith(
         'a'.repeat(43),
         'a-strong-new-password-123',
-        expect.objectContaining({ sourceIp: expect.any(String) }),
+        expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
       );
       const cookies = response.headers['set-cookie'] as string[];
       expect(cookies.join(';')).toContain(`${refreshCookie}=;`);
@@ -527,7 +527,7 @@ describe('Authentication HTTP integration (e2e)', () => {
         identity.id,
         'current-password',
         'a-strong-new-password-123',
-        expect.objectContaining({ sourceIp: expect.any(String) }),
+        expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
       );
     });
 
