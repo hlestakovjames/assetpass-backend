@@ -19,6 +19,7 @@ import { AuthenticatedIdentity, AuthService } from '../auth.service';
 import { IdentityResolutionService } from '../identity-resolution.service';
 import { RegistrationService } from '../registration.service';
 import { PasswordRecoveryService } from '../password-recovery.service';
+import { ApplicationEntitlementsService } from '../application-entitlements.service';
 import { AccessTokenService } from '../access-token.service';
 import { RefreshTokenService } from '../refresh-token.service';
 import { LoginDto } from '../dto/login.dto';
@@ -42,6 +43,7 @@ export class AuthController {
     private readonly config: ConfigService,
     private readonly registrationService: RegistrationService,
     private readonly passwordRecovery: PasswordRecoveryService,
+    private readonly applicationEntitlements: ApplicationEntitlementsService,
     private readonly identityResolution: IdentityResolutionService,
   ) {}
 
@@ -252,6 +254,33 @@ export class AuthController {
   ): Promise<void> {
     await this.refreshTokenService.revokeAllForUser(request.user.id);
     this.authCookies.clearAuthCookies(response);
+  }
+
+
+  @Get('application-entitlements')
+  @UseGuards(JwtAuthGuard)
+  getApplicationEntitlements(@Req() request: AuthenticatedRequest) {
+    return this.applicationEntitlements.getUserEntitlements(request.user.id);
+  }
+
+  @Post('application-entitlements/marketplace/opt-in')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, CookieCsrfGuard)
+  optInMarketplace(@Req() request: AuthenticatedRequest) {
+    return this.applicationEntitlements.optInIndividualMarketplace(request.user.id);
+  }
+
+  @Post('application-entitlements/marketplace/revoke')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, CookieCsrfGuard)
+  revokeMarketplace(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: { reason?: unknown },
+  ) {
+    return this.applicationEntitlements.revokeIndividualMarketplace(
+      request.user.id,
+      body?.reason,
+    );
   }
 
   @Get('me')
