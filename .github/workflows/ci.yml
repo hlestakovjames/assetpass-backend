@@ -338,6 +338,8 @@ jobs:
 
           ROLLBACK;
           SQL
+      - name: Roll back new-user approval default migration
+        run: npm run migration:revert
       - name: Roll back application entitlement migration
         run: npm run migration:revert
       - name: Roll back organization membership history migration
