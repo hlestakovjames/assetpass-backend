@@ -51,6 +51,16 @@ export class AuthController {
     };
   }
 
+  private getPasswordRecoveryMetadata(request: Request) {
+    const metadata = this.getSessionMetadata(request);
+    // Do not treat a hosting-proxy address as the real client IP. Enable IP
+    // throttling only when a trusted proxy chain is explicitly configured.
+    return {
+      ...metadata,
+      sourceIp: process.env.NODE_ENV === 'production' ? null : metadata.sourceIp,
+    };
+  }
+
   private getRefreshToken(request: AuthenticatedRequest): string {
     const token = request.cookies?.[this.authCookies.refreshCookieName];
     if (typeof token !== 'string' || token.length === 0) {
@@ -104,7 +114,7 @@ export class AuthController {
   ) {
     return this.passwordRecovery.requestPasswordReset(
       body?.email,
-      this.getSessionMetadata(request),
+      this.getPasswordRecoveryMetadata(request),
     );
   }
 
@@ -119,7 +129,7 @@ export class AuthController {
     await this.passwordRecovery.resetPassword(
       body?.token,
       body?.newPassword,
-      this.getSessionMetadata(request),
+      this.getPasswordRecoveryMetadata(request),
     );
     this.authCookies.clearAuthCookies(response);
     response.setHeader('Cache-Control', 'no-store');
@@ -137,7 +147,7 @@ export class AuthController {
       request.user.id,
       body?.currentPassword,
       body?.newPassword,
-      this.getSessionMetadata(request),
+      this.getPasswordRecoveryMetadata(request),
     );
     this.authCookies.clearAuthCookies(response);
     response.setHeader('Cache-Control', 'no-store');
@@ -165,7 +175,7 @@ export class AuthController {
     const user = await this.authService.validateCredentials(body.email, body.password);
     const session = await this.refreshTokenService.createSession(
       user.id,
-      this.getSessionMetadata(request),
+      this.getPasswordRecoveryMetadata(request),
     );
     const identity = await this.identityResolution.resolve(user, session.sessionId);
     const accessToken = await this.accessTokenService.issueAccessToken(
@@ -195,7 +205,7 @@ export class AuthController {
     try {
       const rotated = await this.refreshTokenService.rotate(
         refreshToken,
-        this.getSessionMetadata(request),
+        this.getPasswordRecoveryMetadata(request),
       );
       const accessToken = await this.accessTokenService.issueAccessToken(
         rotated.user.id,
