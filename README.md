@@ -144,6 +144,7 @@ See [Organisation-First Onboarding](docs/organization-first-onboarding.md) for t
 - Preserve recipient acknowledgement and atomic completion of custody-changing asset transfers.
 - Marketplace commands must not directly mutate authoritative asset ownership/custody tables.
 - Keep audit evidence for consequential state changes.
+- New self-service individual accounts remain pending internal Platform Administration review until explicitly approved. Email verification is not required for sign-in after approval; do not mark an address verified unless verification actually occurred.
 - Keep `synchronize: false`; use migrations only.
 
 ## Next alignment work
