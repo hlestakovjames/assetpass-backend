@@ -42,6 +42,10 @@ export class CreatePasswordRecoveryFoundation1795000000000
       )
     `);
     await queryRunner.query(`
+      CREATE INDEX "idx_password_reset_request_created_at"
+      ON "password_reset_request_events" ("created_at")
+    `);
+    await queryRunner.query(`
       CREATE INDEX "idx_password_reset_request_email_time"
       ON "password_reset_request_events" ("email_hash", "created_at")
     `);
