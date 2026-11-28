@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { appendOrganizationMembershipEvent } from './organization-membership-events';
 import { OrganizationMembershipEvent, OrganizationMembershipEventType } from './entities/organization-membership-event.entity';
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
@@ -158,7 +158,6 @@ export class OrganizationsService {
   }
 
   async inviteMember(actorUserId: string, organizationId: string, input: InviteOrganizationMemberInput) {
-    await this.assertPermission(actorUserId, organizationId, 'organization.members.manage');
     if (!input || typeof input.email !== 'string' || !['organization_admin', 'asset_manager', 'organization_member'].includes(input.roleKey)) {
       throw new BadRequestException('Provide a valid user email and organization role.');
     }
@@ -176,6 +175,7 @@ export class OrganizationsService {
       throw new BadRequestException('The selected organization role is not available.');
     }
     return this.dataSource.transaction(async (manager) => {
+      await this.assertPermission(actorUserId, organizationId, 'organization.members.manage', manager);
       const membershipRepo = manager.getRepository(OrganizationMembership);
       const membership = await membershipRepo.createQueryBuilder('membership')
         .setLock('pessimistic_write')
@@ -242,6 +242,7 @@ export class OrganizationsService {
 
   async acceptInvitation(userId: string, organizationId: string, membershipId: string) {
     return this.dataSource.transaction(async (manager) => {
+      await this.assertPermission(actorUserId, organizationId, 'organization.members.manage', manager);
       const membershipRepo = manager.getRepository(OrganizationMembership);
       const membership = await membershipRepo.createQueryBuilder('membership')
         .setLock('pessimistic_write')
@@ -277,7 +278,6 @@ export class OrganizationsService {
   }
 
   async changeMemberStatus(actorUserId: string, organizationId: string, membershipId: string, status: OrganizationMembershipStatus) {
-    await this.assertPermission(actorUserId, organizationId, 'organization.members.manage');
     if (![OrganizationMembershipStatus.ACTIVE, OrganizationMembershipStatus.SUSPENDED, OrganizationMembershipStatus.REMOVED].includes(status)) {
       throw new BadRequestException('Only reactivation, suspension or removal is supported from member management.');
     }
@@ -373,11 +373,11 @@ export class OrganizationsService {
   }
 
   async changeMemberRole(actorUserId: string, organizationId: string, membershipId: string, roleKey: string) {
-    await this.assertPermission(actorUserId, organizationId, 'organization.roles.manage');
     if (!['organization_admin', 'asset_manager', 'organization_member'].includes(roleKey)) {
       throw new BadRequestException('The selected role cannot be assigned through member management.');
     }
     return this.dataSource.transaction(async (manager) => {
+      await this.assertPermission(actorUserId, organizationId, 'organization.roles.manage', manager);
       const membership = await manager.getRepository(OrganizationMembership).createQueryBuilder('membership')
         .setLock('pessimistic_write')
         .where('membership.id = :membershipId', { membershipId })
@@ -447,10 +447,17 @@ export class OrganizationsService {
     });
   }
 
-  private async assertPermission(userId: string, organizationId: string, permissionKey: string) {
-    const organization = await this.organizations.findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
+  private async assertPermission(
+    userId: string,
+    organizationId: string,
+    permissionKey: string,
+    manager?: EntityManager,
+  ) {
+    const organizationRepository = manager?.getRepository(Organization) ?? this.organizations;
+    const membershipRepository = manager?.getRepository(OrganizationMembership) ?? this.memberships;
+    const organization = await organizationRepository.findOneBy({ id: organizationId, status: OrganizationStatus.ACTIVE });
     if (!organization) throw new NotFoundException('Active organization workspace not found.');
-    const rows = await this.memberships.createQueryBuilder('membership')
+    const rows = await membershipRepository.createQueryBuilder('membership')
       .innerJoin(
         OrganizationMembershipRole,
         'assignment',
