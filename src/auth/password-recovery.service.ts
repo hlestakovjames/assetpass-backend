@@ -11,7 +11,7 @@ import {
   createHmac,
   randomBytes,
 } from 'node:crypto';
-import { DataSource, IsNull } from 'typeorm';
+import { DataSource, EntityManager, IsNull } from 'typeorm';
 
 import { PlatformAuditLog } from '../audit/entities/platform-audit-log.entity';
 import {
@@ -71,7 +71,7 @@ export class PasswordRecoveryService {
   }
 
   private async recordAndCheckRequestLimit(
-    manager: Parameters<Parameters<DataSource['transaction']>[0]>[0],
+    manager: EntityManager,
     emailHash: string,
     sourceIp: string | null,
   ): Promise<boolean> {
