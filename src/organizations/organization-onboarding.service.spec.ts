@@ -6,6 +6,7 @@ import { OrganizationMembershipRole } from '../access-control/entities/organizat
 import { User } from '../identity/entities/user.entity';
 import { Organization, OrganizationStatus } from './entities/organization.entity';
 import { OrganizationMembership } from './entities/organization-membership.entity';
+import { OrganizationMembershipEvent } from './entities/organization-membership-event.entity';
 import { OrganizationOnboardingApplication, OrganizationOnboardingStatus } from './entities/organization-onboarding-application.entity';
 import { OrganizationOnboardingSession } from './entities/organization-onboarding-session.entity';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
@@ -43,8 +44,19 @@ describe('OrganizationOnboardingService', () => {
   function setup() {
     const appRepo = { save: jest.fn(async (value) => ({ ...value, id: value.id ?? 'application-1' })), findOneBy: jest.fn() };
     const orgRepo = { save: jest.fn(async (value) => ({ ...value, id: 'organization-1', status: 'pending_review' })), findOneBy: jest.fn() };
-    const membershipRepo = { findOneBy: jest.fn(), save: jest.fn(async (value) => ({ ...value, id: 'membership-1' })) };
-    const membershipRoleRepo = { save: jest.fn(), delete: jest.fn() };
+    const membershipQueryBuilder = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    const membershipRepo = {
+      findOneBy: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(membershipQueryBuilder),
+      save: jest.fn(async (value) => ({ ...value, id: 'membership-1' })),
+    };
+    const membershipRoleRepo = { save: jest.fn(), update: jest.fn(), delete: jest.fn() };
+    const membershipEventRepo = { create: jest.fn((value) => value), save: jest.fn(async (value) => value) };
     const roleRepo = { findOne: jest.fn().mockResolvedValue({ id: 'owner-role' }) };
     const userRepo = { findOneBy: jest.fn() };
     const auditRepo = { save: jest.fn() };
@@ -55,6 +67,7 @@ describe('OrganizationOnboardingService', () => {
       [Organization, orgRepo],
       [OrganizationMembership, membershipRepo],
       [OrganizationMembershipRole, membershipRoleRepo],
+      [OrganizationMembershipEvent, membershipEventRepo],
       [OrganizationRole, roleRepo],
       [User, userRepo],
       [PlatformAuditLog, auditRepo],
@@ -74,7 +87,7 @@ describe('OrganizationOnboardingService', () => {
       appRepo as never,
       email as never,
     );
-    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipRoleRepo, roleRepo, userRepo, auditRepo, sessionRepo, dataSource, email };
+    return { service, manager, repos, appRepo, orgRepo, membershipRepo, membershipQueryBuilder, membershipRoleRepo, roleRepo, userRepo, auditRepo, sessionRepo, dataSource, email };
   }
 
   it('accepts an organization application without creating a personal user account', async () => {
@@ -163,7 +176,7 @@ describe('OrganizationOnboardingService', () => {
       organizationId: 'organization-1', userId: 'user-1', status: 'active',
     }));
     expect(membershipRoleRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      membershipId: 'membership-1', roleId: 'owner-role', assignedByUserId: null,
+      membershipId: 'membership-1', roleId: 'owner-role', assignedByUserId: 'user-1',
     }));
     expect(appRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       status: OrganizationOnboardingStatus.CLAIMED, claimedByUserId: 'user-1',
@@ -173,6 +186,65 @@ describe('OrganizationOnboardingService', () => {
     }));
     expect(result.status).toBe('active');
   });
+  it('preserves the original joined_at and revokes old grants when a removed membership rejoins through claim', async () => {
+    const { service, manager, dataSource, appRepo, userRepo, orgRepo, membershipQueryBuilder, membershipRoleRepo, auditRepo, repos } = setup();
+    const firstJoinedAt = new Date('2023-09-14T00:00:00.000Z');
+    dataSource.query.mockResolvedValue([{ organizationId: 'organization-1' }]);
+    manager.query.mockResolvedValue([{ id: application.id }]);
+    appRepo.findOneBy.mockResolvedValue({
+      ...application,
+      status: OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW,
+      organizationId: 'organization-1',
+      emailVerifiedAt: new Date(),
+    });
+    userRepo.findOneBy.mockResolvedValue({
+      id: 'user-1',
+      email: 'amina@example.org',
+      emailVerifiedAt: null,
+      status: 'active',
+      approvalStatus: 'approved',
+    });
+    orgRepo.findOneBy.mockResolvedValue({ id: 'organization-1', status: 'active' });
+    const removedMembership = {
+      id: 'membership-1',
+      organizationId: 'organization-1',
+      userId: 'user-1',
+      status: 'removed',
+      joinedAt: firstJoinedAt,
+    };
+    membershipQueryBuilder.getOne.mockResolvedValue(removedMembership);
+
+    const result = await service.claimWithToken('user-1', 'c'.repeat(43));
+
+    expect(result.membershipId).toBe('membership-1');
+    expect(removedMembership.joinedAt).toEqual(firstJoinedAt);
+    expect(membershipRoleRepo.update).toHaveBeenCalledWith(
+      { membershipId: 'membership-1', revokedAt: expect.anything() },
+      expect.objectContaining({
+        revokedAt: expect.any(Date),
+        revokedByUserId: 'user-1',
+        revocationReason: expect.stringContaining('rejoin'),
+      }),
+    );
+    expect(membershipRoleRepo.delete).not.toHaveBeenCalled();
+    expect(membershipRoleRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        membershipId: 'membership-1',
+        roleId: 'owner-role',
+        assignedByUserId: 'user-1',
+      }),
+    );
+    expect((repos.get(OrganizationMembershipEvent) as { save: jest.Mock }).save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        membershipId: 'membership-1',
+        eventType: 'membership_rejoined',
+        previousStatus: 'removed',
+        newStatus: 'active',
+      }),
+    );
+    expect(auditRepo.save).toHaveBeenCalled();
+  });
+
   it('returns only the application details needed by its restricted representative session', async () => {
     const { service, appRepo, orgRepo } = setup();
     appRepo.findOneBy.mockResolvedValue({

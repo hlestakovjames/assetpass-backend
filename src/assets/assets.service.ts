@@ -266,12 +266,19 @@ export class AssetsService {
     const rows = await manager.query(`
       SELECT 1
       FROM organization_membership_roles mr
-      JOIN organization_roles r ON r.id = mr.role_id AND r.is_active = true
+      JOIN organization_roles r
+        ON r.id = mr.role_id
+       AND r.is_active = true
+       AND (r.organization_id IS NULL OR r.organization_id = $2)
       JOIN organization_role_permissions rp ON rp.role_id = r.id
-      JOIN permissions p ON p.id = rp.permission_id
-      WHERE mr.membership_id = $1 AND p.key = $2
+      JOIN permissions p
+        ON p.id = rp.permission_id
+       AND p.scope = 'organization'
+      WHERE mr.membership_id = $1
+        AND mr.revoked_at IS NULL
+        AND p.key = $3
       LIMIT 1
-    `, [membership.id, permissionKey]);
+    `, [membership.id, organizationId, permissionKey]);
     if (!rows.length) throw new ForbiddenException('You do not have permission to perform this asset operation.');
   }
 

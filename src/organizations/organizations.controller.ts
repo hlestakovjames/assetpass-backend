@@ -32,6 +32,15 @@ export class OrganizationsController {
     return this.service.listMembers(request.user.id, organizationId);
   }
 
+  @Get(':organizationId/members/:membershipId/history')
+  getMembershipHistory(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+    @Param('membershipId') membershipId: string,
+  ) {
+    return this.service.getMembershipHistory(request.user.id, organizationId, membershipId);
+  }
+
   @Post(':organizationId/invitations')
   inviteMember(
     @Req() request: AuthenticatedRequest,
