@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -48,7 +49,7 @@ export class ApplicationEntitlementsService {
     };
   }
 
-  async optInIndividualMarketplace(userId: string) {
+  async optInIndividualMarketplace(userId: string, acknowledgementAccepted: unknown) {
     return this.dataSource.transaction(async (manager) => {
       const users = await manager.query(
         `SELECT id FROM users
@@ -71,6 +72,9 @@ export class ApplicationEntitlementsService {
       if (existing.length) {
         return { active: true, grantedAt: existing[0].granted_at };
       }
+      if (acknowledgementAccepted !== true) {
+        throw new BadRequestException('Confirm the Marketplace participation acknowledgement before opting in.');
+      }
 
       const inserted = await manager.query(
         `INSERT INTO user_application_entitlements
@@ -83,6 +87,7 @@ export class ApplicationEntitlementsService {
       await this.writeAudit(manager, userId, 'marketplace.individual.opted_in', 'user_application_entitlement', inserted[0].id, {
         application: 'marketplace',
         grantSource: 'explicit_individual_opt_in',
+        acknowledgementAccepted: true,
       });
       return { active: true, grantedAt: inserted[0].granted_at };
     });
