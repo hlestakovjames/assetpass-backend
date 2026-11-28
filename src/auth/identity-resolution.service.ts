@@ -6,6 +6,15 @@ import { AuthenticatedIdentity } from './auth.service';
 
 type PlatformRoleRow = { role: string };
 type PermissionRow = { key: string };
+type ApplicationEntitlementRow = { application_key: 'assetpass_app' | 'marketplace'; granted_at: Date | string };
+type MarketplaceRepresentationRow = {
+  grant_id: string;
+  organization_id: string;
+  display_name: string;
+  effective_at: Date | string;
+  expires_at: Date | string | null;
+  authority_basis: string;
+};
 type IndividualWorkspaceRow = { id: string; status: string };
 type OrganizationRow = {
   membership_id: string;
@@ -55,7 +64,7 @@ export class IdentityResolutionService {
       email: user.email,
       status: user.status,
     };
-    const [profile, platformRoleRows, organizationRows] = await Promise.all([
+    const [profile, platformRoleRows, organizationRows, entitlementRows, marketplaceRepresentationRows] = await Promise.all([
       this.dataSource.getRepository(UserProfile).findOneBy({ userId: user.id }),
       this.dataSource.query<PlatformRoleRow[]>(
         `SELECT role FROM platform_roles
@@ -80,10 +89,12 @@ export class IdentityResolutionService {
          INNER JOIN organizations o ON o.id = m.organization_id
          LEFT JOIN organization_membership_roles mr
            ON mr.membership_id = m.id
+           AND mr.revoked_at IS NULL
            AND m.status = 'active'
            AND o.status = 'active'
          LEFT JOIN organization_roles r
            ON r.id = mr.role_id AND r.is_active = TRUE
+           AND (r.organization_id IS NULL OR r.organization_id = o.id)
          LEFT JOIN organization_role_permissions rp ON rp.role_id = r.id
          LEFT JOIN permissions p
            ON p.id = rp.permission_id AND p.scope = 'organization'
@@ -91,7 +102,69 @@ export class IdentityResolutionService {
          ORDER BY m.created_at DESC, r.name ASC, p.key ASC`,
         [user.id],
       ),
+      this.dataSource.query<ApplicationEntitlementRow[]>(
+        `SELECT application_key, granted_at
+         FROM user_application_entitlements
+         WHERE user_id = $1 AND revoked_at IS NULL
+         ORDER BY application_key ASC`,
+        [user.id],
+      ),
+      this.dataSource.query<MarketplaceRepresentationRow[]>(
+        `SELECT
+           representative.id AS grant_id,
+           organization.id AS organization_id,
+           organization.display_name,
+           representative.effective_at,
+           representative.expires_at,
+           representative.authority_basis
+         FROM organization_marketplace_representatives representative
+         INNER JOIN organizations organization
+           ON organization.id = representative.organization_id
+         INNER JOIN organization_application_entitlements entitlement
+           ON entitlement.organization_id = organization.id
+           AND entitlement.application_key = 'marketplace'
+           AND entitlement.revoked_at IS NULL
+         INNER JOIN organization_memberships membership
+           ON membership.id = representative.membership_id
+           AND membership.organization_id = organization.id
+           AND membership.user_id = representative.user_id
+           AND membership.status = 'active'
+         INNER JOIN users user_account
+           ON user_account.id = representative.user_id
+           AND user_account.status = 'active'
+           AND user_account.approval_status = 'approved'
+           AND user_account.deactivated_at IS NULL
+         WHERE representative.user_id = $1
+           AND representative.revoked_at IS NULL
+           AND representative.effective_at <= NOW()
+           AND (representative.expires_at IS NULL OR representative.expires_at > NOW())
+           AND organization.status = 'active'
+         ORDER BY organization.display_name ASC`,
+        [user.id],
+      ),
     ]);
+
+    const activeEntitlements = new Map<string, Date | string>(
+      entitlementRows.map((row): [string, Date | string] => [row.application_key, row.granted_at]),
+    );
+    const applicationEntitlements = {
+      assetpassApp: {
+        active: activeEntitlements.has('assetpass_app'),
+        grantedAt: activeEntitlements.get('assetpass_app') ?? null,
+      },
+      marketplace: {
+        active: activeEntitlements.has('marketplace'),
+        grantedAt: activeEntitlements.get('marketplace') ?? null,
+      },
+    };
+    const marketplaceOrganizationRepresentations = marketplaceRepresentationRows.map((row) => ({
+      grantId: row.grant_id,
+      organizationId: row.organization_id,
+      displayName: row.display_name,
+      effectiveAt: row.effective_at,
+      expiresAt: row.expires_at,
+      authorityBasis: row.authority_basis,
+    }));
 
     const platformRoles = platformRoleRows.map((row) => row.role);
     const isGlobalAdministrator = platformRoles.includes('Global Administrator');
@@ -216,6 +289,8 @@ export class IdentityResolutionService {
 
     return {
       ...identity,
+      applicationEntitlements,
+      marketplaceOrganizationRepresentations,
       profile: profile ? {
         firstName: profile.firstName,
         middleName: profile.middleName,

@@ -196,6 +196,150 @@ jobs:
 
           ROLLBACK;
           SQL
+      - name: Verify application entitlement and representation database guards
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+
+          CREATE TEMP TABLE entitlement_guard_probe (
+            id uuid,
+            user_id uuid,
+            organization_id uuid,
+            application_key text,
+            granted_at timestamptz,
+            granted_by_user_id uuid,
+            grant_source text,
+            revoked_at timestamptz,
+            revoked_by_user_id uuid,
+            revocation_reason text,
+            created_at timestamptz
+          ) ON COMMIT DROP;
+          CREATE TRIGGER entitlement_guard_probe_trigger
+          BEFORE UPDATE OR DELETE ON entitlement_guard_probe
+          FOR EACH ROW EXECUTE FUNCTION guard_application_entitlement_history();
+          INSERT INTO entitlement_guard_probe (
+            id, user_id, application_key, granted_at, grant_source, created_at
+          ) VALUES (
+            '11111111-1111-4111-8111-111111111111',
+            '22222222-2222-4222-8222-222222222222',
+            'marketplace',
+            now(),
+            'ci_probe',
+            now()
+          );
+
+          DO $entitlement_guard$
+          BEGIN
+            BEGIN
+              UPDATE entitlement_guard_probe
+              SET grant_source = 'rewritten'
+              WHERE id = '11111111-1111-4111-8111-111111111111';
+              RAISE EXCEPTION 'Expected entitlement grant identity UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+            BEGIN
+              DELETE FROM entitlement_guard_probe
+              WHERE id = '11111111-1111-4111-8111-111111111111';
+              RAISE EXCEPTION 'Expected entitlement DELETE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $entitlement_guard$;
+
+          UPDATE entitlement_guard_probe
+          SET revoked_at = now(), revocation_reason = 'CI test revocation'
+          WHERE id = '11111111-1111-4111-8111-111111111111';
+
+          DO $entitlement_revoke_guard$
+          BEGIN
+            BEGIN
+              UPDATE entitlement_guard_probe
+              SET revocation_reason = 'attempted history rewrite'
+              WHERE id = '11111111-1111-4111-8111-111111111111';
+              RAISE EXCEPTION 'Expected a second entitlement revocation UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $entitlement_revoke_guard$;
+
+          CREATE TEMP TABLE representation_guard_probe (
+            id uuid,
+            organization_id uuid,
+            user_id uuid,
+            membership_id uuid,
+            granted_by_user_id uuid,
+            granted_by_membership_id uuid,
+            authority_basis text,
+            authority_reference text,
+            effective_at timestamptz,
+            expires_at timestamptz,
+            revoked_at timestamptz,
+            revoked_by_user_id uuid,
+            revocation_reason text,
+            created_at timestamptz
+          ) ON COMMIT DROP;
+          CREATE TRIGGER representation_guard_probe_trigger
+          BEFORE UPDATE OR DELETE ON representation_guard_probe
+          FOR EACH ROW EXECUTE FUNCTION guard_organization_marketplace_representative_history();
+          INSERT INTO representation_guard_probe (
+            id, organization_id, user_id, membership_id, granted_by_user_id,
+            granted_by_membership_id, authority_basis, effective_at, created_at
+          ) VALUES (
+            '33333333-3333-4333-8333-333333333333',
+            '44444444-4444-4444-8444-444444444444',
+            '55555555-5555-4555-8555-555555555555',
+            '66666666-6666-4666-8666-666666666666',
+            '77777777-7777-4777-8777-777777777777',
+            '88888888-8888-4888-8888-888888888888',
+            'organization_owner_approval',
+            now(),
+            now()
+          );
+
+          DO $representation_guard$
+          BEGIN
+            BEGIN
+              UPDATE representation_guard_probe
+              SET authority_basis = 'rewritten'
+              WHERE id = '33333333-3333-4333-8333-333333333333';
+              RAISE EXCEPTION 'Expected representation grant identity UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+            BEGIN
+              DELETE FROM representation_guard_probe
+              WHERE id = '33333333-3333-4333-8333-333333333333';
+              RAISE EXCEPTION 'Expected representation grant DELETE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $representation_guard$;
+
+          UPDATE representation_guard_probe
+          SET revoked_at = now(), revocation_reason = 'CI test revocation'
+          WHERE id = '33333333-3333-4333-8333-333333333333';
+
+          DO $representation_revoke_guard$
+          BEGIN
+            BEGIN
+              UPDATE representation_guard_probe
+              SET revocation_reason = 'attempted history rewrite'
+              WHERE id = '33333333-3333-4333-8333-333333333333';
+              RAISE EXCEPTION 'Expected a second representation revocation UPDATE to be rejected.';
+            EXCEPTION WHEN SQLSTATE '55000' THEN
+              NULL;
+            END;
+          END;
+          $representation_revoke_guard$;
+
+          ROLLBACK;
+          SQL
+      - name: Roll back application entitlement migration
+        run: npm run migration:revert
       - name: Roll back organization membership history migration
         run: npm run migration:revert
       - name: Roll back password recovery foundation migration
@@ -206,7 +350,7 @@ jobs:
         run: npm run migration:revert
       - name: Roll back organisation-first onboarding migration
         run: npm run migration:revert
-      - name: Reapply organisation-first onboarding migrations
+      - name: Reapply all migrations after rollback
         run: npm run migration:run
       - name: Confirm migration state after rollback and reapply
         run: npm run migration:show

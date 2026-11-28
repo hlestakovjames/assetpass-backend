@@ -5,7 +5,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { IsNull, Repository } from 'typeorm';
 
-import { User, UserStatus } from '../../identity/entities/user.entity';
+import { User, UserApprovalStatus, UserStatus } from '../../identity/entities/user.entity';
 import { AuthenticatedIdentity } from '../auth.service';
 import { AuthSession } from '../auth-session.entity';
 import { JwtAccessPayload } from '../interfaces/jwt-access-payload.interface';
@@ -63,6 +63,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         fullName: true,
         email: true,
         status: true,
+        approvalStatus: true,
         deactivatedAt: true,
       },
     });
@@ -70,6 +71,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (
       !user ||
       user.status !== UserStatus.ACTIVE ||
+      user.approvalStatus !== UserApprovalStatus.APPROVED ||
       user.deactivatedAt !== null
     ) {
       throw new UnauthorizedException('Authentication is no longer valid.');

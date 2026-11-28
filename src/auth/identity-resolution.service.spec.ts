@@ -58,6 +58,8 @@ describe('IdentityResolutionService', () => {
         },
       ])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: 'individual-1', status: 'active' }]);
 
     const result = await service.resolve(user);
@@ -87,6 +89,8 @@ describe('IdentityResolutionService', () => {
     query
       .mockResolvedValueOnce([{ role: 'Global Administrator' }])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { key: 'platform.users.view' },
         { key: 'platform.organizations.review' },
@@ -115,6 +119,8 @@ describe('IdentityResolutionService', () => {
     query
       .mockResolvedValueOnce([{ role: 'Central Platform Administrator' }])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ key: 'platform.users.read' }])
       .mockResolvedValueOnce([]);
 
@@ -122,9 +128,9 @@ describe('IdentityResolutionService', () => {
 
     expect(result.platformRoles).toEqual(['Central Platform Administrator']);
     expect(result.platformPermissions).toEqual(['platform.users.read']);
-    expect(query.mock.calls[2][0]).toContain('INNER JOIN platform_role_permissions');
-    expect(query.mock.calls[2][0]).toContain("pr.role = 'Central Platform Administrator'");
-    expect(query.mock.calls[2][1]).toEqual([user.id]);
+    expect(query.mock.calls[4][0]).toContain('INNER JOIN platform_role_permissions');
+    expect(query.mock.calls[4][0]).toContain("pr.role = 'Central Platform Administrator'");
+    expect(query.mock.calls[4][1]).toEqual([user.id]);
   });
 
   it('keeps a pending organization visible without granting an active organization workspace', async () => {
@@ -146,6 +152,8 @@ describe('IdentityResolutionService', () => {
         },
       ])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
     const result = await service.resolve(user);
@@ -165,6 +173,8 @@ describe('IdentityResolutionService', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
     const result = await service.resolve(user);
@@ -174,6 +184,8 @@ describe('IdentityResolutionService', () => {
   });
   it('restores a saved session context only when it remains currently available', async () => {
     query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -198,6 +210,8 @@ describe('IdentityResolutionService', () => {
 
   it('ignores a saved context after its workspace is no longer available', async () => {
     query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])

@@ -62,6 +62,12 @@ export class OrganizationsService {
         county: input.county?.trim() || null, city: input.city?.trim() || null,
         status: OrganizationStatus.PENDING_REVIEW, createdByUserId: userId,
       }));
+      await manager.query(
+        `INSERT INTO organization_application_entitlements
+           (organization_id, application_key, grant_source)
+         VALUES ($1, 'assetpass_app', 'organization_registration')`,
+        [organization.id],
+      );
       const membership = await memberRepo.save(memberRepo.create({
         organizationId: organization.id, userId, status: OrganizationMembershipStatus.PENDING,
         invitedByUserId: null, joinedAt: null,

@@ -11,6 +11,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { AuthCookies } from './utils/auth-cookies';
 import { RegistrationService } from './registration.service';
 import { PasswordRecoveryService } from './password-recovery.service';
+import { ApplicationEntitlementsService } from './application-entitlements.service';
 import { IdentityResolutionService } from './identity-resolution.service';
 import { UserStatus } from '../identity/entities/user.entity';
 
@@ -163,6 +164,7 @@ describe('AuthController', () => {
       {} as never,
       {} as unknown as RegistrationService,
       passwordRecovery as unknown as PasswordRecoveryService,
+      {} as unknown as ApplicationEntitlementsService,
       identityResolution as unknown as IdentityResolutionService,
     );
   });

@@ -80,6 +80,13 @@ export async function completePlatformOwnerBootstrap(
 
     const savedOwner = await userRepository.save(owner);
 
+    await manager.query(
+      `INSERT INTO user_application_entitlements
+         (user_id, application_key, grant_source)
+       VALUES ($1, 'assetpass_app', 'platform_bootstrap')`,
+      [savedOwner.id],
+    );
+
     await roleRepository.save(
       roleRepository.create({
         userId: savedOwner.id,

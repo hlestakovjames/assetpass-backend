@@ -22,6 +22,7 @@ import { AuthCookies } from '../src/auth/utils/auth-cookies';
 import { IdentityResolutionService } from '../src/auth/identity-resolution.service';
 import { RegistrationService } from '../src/auth/registration.service';
 import { PasswordRecoveryService } from '../src/auth/password-recovery.service';
+import { ApplicationEntitlementsService } from '../src/auth/application-entitlements.service';
 import { getTrustedOrigins } from '../src/auth/utils/trusted-origins';
 
 const TRUSTED_ORIGIN = 'http://localhost:3000';
@@ -116,6 +117,19 @@ describe('Authentication HTTP integration (e2e)', () => {
         { provide: IdentityResolutionService, useValue: identityResolution },
         { provide: RegistrationService, useValue: registrationService },
         { provide: PasswordRecoveryService, useValue: passwordRecoveryService },
+        {
+          provide: ApplicationEntitlementsService,
+          useValue: {
+            getUserEntitlements: jest.fn(),
+            optInIndividualMarketplace: jest.fn(),
+            revokeIndividualMarketplace: jest.fn(),
+            getOrganizationEntitlements: jest.fn(),
+            optInOrganizationMarketplace: jest.fn(),
+            revokeOrganizationMarketplace: jest.fn(),
+            grantOrganizationRepresentative: jest.fn(),
+            revokeOrganizationRepresentative: jest.fn(),
+          },
+        },
         AuthCookies,
         BrowserOriginGuard,
         CookieCsrfGuard,

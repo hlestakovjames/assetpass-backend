@@ -2,6 +2,8 @@ import { Body, Controller, Get, Param, Patch, Post, Put, Req, UseGuards } from '
 import type { Request } from 'express';
 import type { AuthenticatedIdentity } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CookieCsrfGuard } from '../auth/guards/cookie-csrf.guard';
+import { ApplicationEntitlementsService } from '../auth/application-entitlements.service';
 import { OrganizationsService, type InviteOrganizationMemberInput, type RegisterOrganizationInput } from './organizations.service';
 import { OrganizationMembershipStatus } from './entities/organization-membership.entity';
 
@@ -10,7 +12,10 @@ type AuthenticatedRequest = Request & { user: AuthenticatedIdentity };
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly service: OrganizationsService) {}
+  constructor(
+    private readonly service: OrganizationsService,
+    private readonly applicationEntitlements: ApplicationEntitlementsService,
+  ) {}
 
   @Post()
   register(@Req() request: AuthenticatedRequest, @Body() body: RegisterOrganizationInput) {
@@ -67,6 +72,80 @@ export class OrganizationsController {
     @Body() body: { status: OrganizationMembershipStatus },
   ) {
     return this.service.changeMemberStatus(request.user.id, organizationId, membershipId, body?.status);
+  }
+
+
+  @Get(':organizationId/application-entitlements')
+  getApplicationEntitlements(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.applicationEntitlements.getOrganizationEntitlements(
+      request.user.id,
+      organizationId,
+    );
+  }
+
+  @Post(':organizationId/application-entitlements/marketplace/opt-in')
+  @UseGuards(CookieCsrfGuard)
+  optInMarketplace(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.applicationEntitlements.optInOrganizationMarketplace(
+      request.user.id,
+      organizationId,
+    );
+  }
+
+  @Post(':organizationId/application-entitlements/marketplace/revoke')
+  @UseGuards(CookieCsrfGuard)
+  revokeMarketplace(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+    @Body() body: { reason?: unknown },
+  ) {
+    return this.applicationEntitlements.revokeOrganizationMarketplace(
+      request.user.id,
+      organizationId,
+      body?.reason,
+    );
+  }
+
+  @Post(':organizationId/marketplace/representatives')
+  @UseGuards(CookieCsrfGuard)
+  grantMarketplaceRepresentative(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+    @Body() body: {
+      userId?: unknown;
+      authorityBasis?: unknown;
+      authorityReference?: unknown;
+      effectiveAt?: unknown;
+      expiresAt?: unknown;
+    },
+  ) {
+    return this.applicationEntitlements.grantOrganizationRepresentative(
+      request.user.id,
+      organizationId,
+      body,
+    );
+  }
+
+  @Post(':organizationId/marketplace/representatives/:grantId/revoke')
+  @UseGuards(CookieCsrfGuard)
+  revokeMarketplaceRepresentative(
+    @Req() request: AuthenticatedRequest,
+    @Param('organizationId') organizationId: string,
+    @Param('grantId') grantId: string,
+    @Body() body: { reason?: unknown },
+  ) {
+    return this.applicationEntitlements.revokeOrganizationRepresentative(
+      request.user.id,
+      organizationId,
+      grantId,
+      body?.reason,
+    );
   }
 
   @Put(':organizationId/members/:membershipId/role')

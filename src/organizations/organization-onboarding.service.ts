@@ -177,6 +177,12 @@ export class OrganizationOnboardingService {
         status: OrganizationStatus.PENDING_REVIEW,
         createdByUserId: null,
       } as Partial<Organization>);
+      await manager.query(
+        `INSERT INTO organization_application_entitlements
+           (organization_id, application_key, grant_source)
+         VALUES ($1, 'assetpass_app', 'organization_first_onboarding')`,
+        [organization.id],
+      );
       application.emailVerifiedAt = new Date();
       application.organizationId = organization.id;
       application.status = OrganizationOnboardingStatus.SUBMITTED_FOR_REVIEW;

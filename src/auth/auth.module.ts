@@ -27,6 +27,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenService } from './refresh-token.service';
 import { AuthCookies } from './utils/auth-cookies';
 import { PasswordRecoveryService } from './password-recovery.service';
+import { ApplicationEntitlementsService } from './application-entitlements.service';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { PasswordRecoveryService } from './password-recovery.service';
   providers: [
     AuthService,
     PasswordRecoveryService,
+    ApplicationEntitlementsService,
     IdentityResolutionService,
     RegistrationService,
     EmailDeliveryService,
@@ -76,10 +78,12 @@ import { PasswordRecoveryService } from './password-recovery.service';
   exports: [
     AuthService,
     PasswordRecoveryService,
+    ApplicationEntitlementsService,
     RegistrationService,
     RefreshTokenService,
     AccessTokenService,
     JwtAuthGuard,
+    CookieCsrfGuard,
     BrowserOriginGuard,
     EmailDeliveryService,
   ],

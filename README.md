@@ -176,3 +176,21 @@ Organisation registration is now a separate lifecycle; `POST /api/v1/auth/regist
 Migrations: `1794700000000-CreateOrganizationFirstOnboarding` and `1794800000000-CreateOrganizationOnboardingSessions`. Apply after migrations `1794500000000` and `1794600000000`.
 
 Email verification proves mailbox control only; it is not legal due diligence or proof of authority. Evidence upload/review, session recovery, multi-representative authority, requests for information and browser-level full journey testing remain outstanding. The current temporary session is read-only; no arbitrary object references are accepted as evidence.
+
+
+### Application entitlements and Marketplace representation API — Phase 1 in development
+
+Draft implementation: [PR #25](https://github.com/hlestakovjames/assetpass-backend/pull/25). These routes are not part of the shared integration branch or a production deployment until the PR is reviewed and merged.
+
+- `GET /api/v1/auth/application-entitlements` — return separate App and individual Marketplace entitlement states.
+- `POST /api/v1/auth/application-entitlements/marketplace/opt-in` — grant individual Marketplace participation after an explicit acknowledgement.
+- `POST /api/v1/auth/application-entitlements/marketplace/revoke` — revoke only individual Marketplace participation; central identity and App access remain unchanged.
+- `GET /api/v1/organizations/:organizationId/application-entitlements` — read the organisation's App and Marketplace entitlement state with the dedicated organisation permission.
+- `POST /api/v1/organizations/:organizationId/application-entitlements/marketplace/opt-in` and `/revoke` — activate or revoke organisation Marketplace participation. Revocation also revokes current organisation representative grants.
+- `POST /api/v1/organizations/:organizationId/marketplace/representatives` and `/representatives/:grantId/revoke` — grant/revoke effective-dated representation for an active member under the dedicated permission.
+
+The additive migration `1795200000000-CreateApplicationEntitlements` creates retained person and organisation application-entitlement grants plus tenant-bound organisation Marketplace representation records. Existing users and organisations receive only the AssetPass App entitlement during backfill; no historical Marketplace consent or representation is fabricated. The permission `organization.marketplace.manage` is granted to the system Organization Owner and Organization Administrator roles.
+
+The backend identity response exposes independent entitlement state and currently valid organisation representation grants. JWT validation also rechecks account approval status, so pending or rejected accounts cannot continue using a previously issued access token. Marketplace login authenticates the central identity but does not itself grant participant entitlement, organisation representation or seller/listing authority.
+
+Representation is not legal ownership, asset management, physical custody or asset-specific listing/sale authority. All mutating browser-facing routes use the existing authenticated session and CSRF protections. Migration apply/rollback/reapply, backend tests and client integration remain pending CI/review. Do not apply this migration to production before the separate release approval.

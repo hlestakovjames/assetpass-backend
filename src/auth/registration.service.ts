@@ -123,6 +123,13 @@ export class RegistrationService {
           deactivatedAt: null,
         }));
 
+        await manager.query(
+          `INSERT INTO user_application_entitlements
+             (user_id, application_key, grant_source)
+           VALUES ($1, 'assetpass_app', 'self_service_registration')`,
+          [created.id],
+        );
+
         await manager.getRepository(UserProfile).save(manager.getRepository(UserProfile).create({
           userId: created.id,
           firstName: parts.firstName,
