@@ -157,6 +157,23 @@ export class CreateOrganizationMembershipHistory1795100000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      DO $membership_history_rollback_guard$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM "organization_membership_events"
+          WHERE "event_type" <> 'membership_baseline_recorded'
+        ) OR EXISTS (
+          SELECT 1
+          FROM "organization_membership_roles"
+          WHERE "revoked_at" IS NOT NULL
+        ) THEN
+          RAISE EXCEPTION 'Cannot roll back membership history after lifecycle events or role revocations have been recorded; use a forward migration.';
+        END IF;
+      END;
+      $membership_history_rollback_guard$;
+    `);
     await queryRunner.query(`DROP TRIGGER "trg_organization_membership_events_append_only" ON "organization_membership_events"`);
     await queryRunner.query(`DROP FUNCTION "reject_organization_membership_event_mutation"()`);
     await queryRunner.query(`DROP TABLE "organization_membership_events"`);
