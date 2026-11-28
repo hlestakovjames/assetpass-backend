@@ -13,9 +13,7 @@ import { EmailVerification } from './email-verification.entity';
 import { EmailDeliveryService } from './email-delivery.service';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
-const GENERIC_MESSAGE = 'Registration received. If this is a new account, it is ready for sign-in.';
-const REGISTRATION_SUCCESS_MESSAGE = 'Registration successful. Your account is active and you can sign in now.';
-const ORGANIZATION_SUCCESS_MESSAGE = 'Your AssetPass account is active. Your organization registration has been submitted for platform review.';
+const GENERIC_MESSAGE = 'Registration received. If this is a new account, it will be available for sign-in after internal review.';
 const logger = new Logger('RegistrationService');
 
 type CommonRegistration = {
@@ -112,12 +110,12 @@ export class RegistrationService {
           fullName,
           email,
           passwordHash,
-          status: UserStatus.ACTIVE,
-          approvalStatus: UserApprovalStatus.APPROVED,
+          status: UserStatus.INACTIVE,
+          approvalStatus: UserApprovalStatus.PENDING_REVIEW,
           approvalReviewedByUserId: null,
-          approvalReviewedAt: now,
-          approvalNote: 'Automatically approved under the early-launch registration access policy.',
-          emailVerifiedAt: now,
+          approvalReviewedAt: null,
+          approvalNote: null,
+          emailVerifiedAt: null,
           isFoundingAssetManager: false,
           lastLoginAt: null,
           deactivatedAt: null,
@@ -213,14 +211,15 @@ export class RegistrationService {
           entityType: 'user',
           entityId: created.id,
           outcome: 'success',
-          reason: 'Automatic activation under the early-launch registration access policy.',
+          reason: 'Registration submitted for internal Platform Administration review.',
           metadata: {
             registrationMethod: 'self_service',
             accountType,
             accountStatus: created.status,
             approvalStatus: created.approvalStatus,
-            emailVerifiedInternally: Boolean(created.emailVerifiedAt),
+            emailVerifiedInternally: false,
             emailVerificationEmailSent: false,
+            emailVerificationRequiredForLogin: false,
             termsAccepted: true,
             privacyNoticeAccepted: true,
             consentVersion: '2026-11-09',
@@ -228,7 +227,7 @@ export class RegistrationService {
         });
       });
 
-      return { message: organization ? ORGANIZATION_SUCCESS_MESSAGE : REGISTRATION_SUCCESS_MESSAGE };
+      return { message: GENERIC_MESSAGE };
     } catch (error) {
       if (isUniqueViolation(error)) {
         if (organization?.registrationNumber) throw new ConflictException('An organization with this registration number already exists.');
