@@ -489,7 +489,7 @@ describe('AuthController', () => {
 
       expect(passwordRecovery.requestPasswordReset).toHaveBeenCalledWith(
         'person@example.com',
-        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client' },
+        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client', clientOrigin: null },
       );
       expect(result).toEqual({
         message: 'If an account exists for that email address, password reset instructions will be sent shortly.',
@@ -506,7 +506,7 @@ describe('AuthController', () => {
       expect(passwordRecovery.resetPassword).toHaveBeenCalledWith(
         'a'.repeat(43),
         'a-strong-new-password-123',
-        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client' },
+        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client', clientOrigin: null },
       );
       expect(authCookies.clearAuthCookies).toHaveBeenCalledWith(response);
       expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
@@ -523,7 +523,7 @@ describe('AuthController', () => {
         identity.id,
         'current-password',
         'a-strong-new-password-123',
-        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client' },
+        { sourceIp: '127.0.0.1', userAgent: 'AssetPass test client', clientOrigin: null },
       );
       expect(authCookies.clearAuthCookies).toHaveBeenCalledWith(response);
       expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
