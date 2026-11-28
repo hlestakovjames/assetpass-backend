@@ -294,8 +294,18 @@ export class OrganizationsService {
       if (membership.status === OrganizationMembershipStatus.REMOVED || membership.status === OrganizationMembershipStatus.REJECTED) {
         throw new ConflictException('This membership is no longer eligible for status changes.');
       }
+      if (membership.status === status) {
+        throw new ConflictException('The membership already has the requested status.');
+      }
       if (status === OrganizationMembershipStatus.ACTIVE && membership.status !== OrganizationMembershipStatus.SUSPENDED) {
         throw new ConflictException('Only a suspended membership can be reactivated.');
+      }
+      if (status === OrganizationMembershipStatus.SUSPENDED && membership.status !== OrganizationMembershipStatus.ACTIVE) {
+        throw new ConflictException('Only an active membership can be suspended.');
+      }
+      if (status === OrganizationMembershipStatus.REMOVED &&
+          ![OrganizationMembershipStatus.ACTIVE, OrganizationMembershipStatus.SUSPENDED].includes(membership.status)) {
+        throw new ConflictException('Only an active or suspended membership can be removed.');
       }
       if (status === OrganizationMembershipStatus.ACTIVE) {
         const activeOrganization = await manager.getRepository(Organization).findOneBy({
@@ -316,7 +326,7 @@ export class OrganizationsService {
             .andWhere('(role.organization_id IS NULL OR role.organization_id = :organizationId)', { organizationId })
             .getMany()
         : [];
-      if (assignedRoles.some((role) => role.key === 'organization_owner')) {
+      if (status !== OrganizationMembershipStatus.ACTIVE && assignedRoles.some((role) => role.key === 'organization_owner')) {
         const otherOwners = await manager.createQueryBuilder()
           .select('COUNT(DISTINCT membership.id)', 'count')
           .from(OrganizationMembership, 'membership')
