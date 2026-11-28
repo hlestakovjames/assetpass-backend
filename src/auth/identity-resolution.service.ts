@@ -6,6 +6,15 @@ import { AuthenticatedIdentity } from './auth.service';
 
 type PlatformRoleRow = { role: string };
 type PermissionRow = { key: string };
+type ApplicationEntitlementRow = { application_key: 'assetpass_app' | 'marketplace'; granted_at: Date | string };
+type MarketplaceRepresentationRow = {
+  grant_id: string;
+  organization_id: string;
+  display_name: string;
+  effective_at: Date | string;
+  expires_at: Date | string | null;
+  authority_basis: string;
+};
 type IndividualWorkspaceRow = { id: string; status: string };
 type OrganizationRow = {
   membership_id: string;
@@ -55,12 +64,47 @@ export class IdentityResolutionService {
       email: user.email,
       status: user.status,
     };
-    const [profile, platformRoleRows, organizationRows] = await Promise.all([
+    const [profile, platformRoleRows, organizationRows, entitlementRows, marketplaceRepresentationRows] = await Promise.all([
       this.dataSource.getRepository(UserProfile).findOneBy({ userId: user.id }),
       this.dataSource.query<PlatformRoleRow[]>(
         `SELECT role FROM platform_roles
          WHERE user_id = $1 AND revoked_at IS NULL
          ORDER BY assigned_at ASC`,
+        [user.id],
+      ),
+      this.dataSource.query<ApplicationEntitlementRow[]>(
+        `SELECT application_key, granted_at
+         FROM user_application_entitlements
+         WHERE user_id = $1 AND revoked_at IS NULL
+         ORDER BY application_key ASC`,
+        [user.id],
+      ),
+      this.dataSource.query<MarketplaceRepresentationRow[]>(
+        `SELECT
+           representative.id AS grant_id,
+           organization.id AS organization_id,
+           organization.display_name,
+           representative.effective_at,
+           representative.expires_at,
+           representative.authority_basis
+         FROM organization_marketplace_representatives representative
+         INNER JOIN organizations organization
+           ON organization.id = representative.organization_id
+         INNER JOIN organization_application_entitlements entitlement
+           ON entitlement.organization_id = organization.id
+           AND entitlement.application_key = 'marketplace'
+           AND entitlement.revoked_at IS NULL
+         INNER JOIN organization_memberships membership
+           ON membership.id = representative.membership_id
+           AND membership.organization_id = organization.id
+           AND membership.user_id = representative.user_id
+           AND membership.status = 'active'
+         WHERE representative.user_id = $1
+           AND representative.revoked_at IS NULL
+           AND representative.effective_at <= NOW()
+           AND (representative.expires_at IS NULL OR representative.expires_at > NOW())
+           AND organization.status = 'active'
+         ORDER BY organization.display_name ASC`,
         [user.id],
       ),
       this.dataSource.query<OrganizationRow[]>(
@@ -92,6 +136,28 @@ export class IdentityResolutionService {
         [user.id],
       ),
     ]);
+
+    const activeEntitlements = new Map(
+      entitlementRows.map((row) => [row.application_key, row.granted_at]),
+    );
+    const applicationEntitlements = {
+      assetpassApp: {
+        active: activeEntitlements.has('assetpass_app'),
+        grantedAt: activeEntitlements.get('assetpass_app') ?? null,
+      },
+      marketplace: {
+        active: activeEntitlements.has('marketplace'),
+        grantedAt: activeEntitlements.get('marketplace') ?? null,
+      },
+    };
+    const marketplaceOrganizationRepresentations = marketplaceRepresentationRows.map((row) => ({
+      grantId: row.grant_id,
+      organizationId: row.organization_id,
+      displayName: row.display_name,
+      effectiveAt: row.effective_at,
+      expiresAt: row.expires_at,
+      authorityBasis: row.authority_basis,
+    }));
 
     const platformRoles = platformRoleRows.map((row) => row.role);
     const isGlobalAdministrator = platformRoles.includes('Global Administrator');
@@ -216,6 +282,8 @@ export class IdentityResolutionService {
 
     return {
       ...identity,
+      applicationEntitlements,
+      marketplaceOrganizationRepresentations,
       profile: profile ? {
         firstName: profile.firstName,
         middleName: profile.middleName,
