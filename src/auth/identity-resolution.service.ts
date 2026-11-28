@@ -144,8 +144,8 @@ export class IdentityResolutionService {
       ),
     ]);
 
-    const activeEntitlements = new Map(
-      entitlementRows.map((row) => [row.application_key, row.granted_at]),
+    const activeEntitlements = new Map<string, Date | string>(
+      entitlementRows.map((row): [string, Date | string] => [row.application_key, row.granted_at]),
     );
     const applicationEntitlements = {
       assetpassApp: {
