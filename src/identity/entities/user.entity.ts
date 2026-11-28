@@ -49,7 +49,7 @@ export class User {
     type: 'enum',
     enum: UserApprovalStatus,
     enumName: 'user_approval_status',
-    default: UserApprovalStatus.APPROVED,
+    default: UserApprovalStatus.PENDING_REVIEW,
   })
   approvalStatus: UserApprovalStatus;
 
