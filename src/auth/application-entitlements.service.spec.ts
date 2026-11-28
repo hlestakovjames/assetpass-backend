@@ -36,9 +36,19 @@ describe('ApplicationEntitlementsService', () => {
   it('requires an approved active account before individual Marketplace opt-in', async () => {
     manager.query.mockResolvedValueOnce([]);
 
-    await expect(service.optInIndividualMarketplace(userId))
+    await expect(service.optInIndividualMarketplace(userId, true))
       .rejects.toThrow('An approved, active account is required.');
     expect(manager.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires explicit acknowledgement before individual Marketplace opt-in', async () => {
+    manager.query
+      .mockResolvedValueOnce([{ id: userId }])
+      .mockResolvedValueOnce([]);
+
+    await expect(service.optInIndividualMarketplace(userId, false))
+      .rejects.toThrow('Confirm the Marketplace participation acknowledgement before opting in.');
+    expect(manager.query).toHaveBeenCalledTimes(2);
   });
 
   it('creates an individual Marketplace entitlement and audit record', async () => {
@@ -48,7 +58,7 @@ describe('ApplicationEntitlementsService', () => {
       .mockResolvedValueOnce([{ id: grantId, granted_at: now }])
       .mockResolvedValueOnce([]);
 
-    await expect(service.optInIndividualMarketplace(userId)).resolves.toEqual({
+    await expect(service.optInIndividualMarketplace(userId, true)).resolves.toEqual({
       active: true,
       grantedAt: now,
     });
@@ -61,7 +71,7 @@ describe('ApplicationEntitlementsService', () => {
       .mockResolvedValueOnce([{ id: userId }])
       .mockResolvedValueOnce([{ id: grantId, granted_at: now }]);
 
-    await expect(service.optInIndividualMarketplace(userId)).resolves.toEqual({
+    await expect(service.optInIndividualMarketplace(userId, true)).resolves.toEqual({
       active: true,
       grantedAt: now,
     });
