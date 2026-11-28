@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+
 export const ORGANIZATION_REGISTRATION_RULES_VERSION = '2026-11-28.v1';
 
 export const ORGANIZATION_TYPE_KEYS = [
@@ -60,12 +62,12 @@ export function validateOrganizationRegistrationDetails(input: {
 }) {
   const organizationType = normalizeOrganizationType(input.organizationType);
   if (!organizationType) {
-    throw new Error('Select a supported organisation type.');
+    throw new BadRequestException('Select a supported organisation type.');
   }
 
   const registrationStatus = input.registrationStatus?.trim() ?? '';
   if (!(ORGANIZATION_REGISTRATION_STATUSES as readonly string[]).includes(registrationStatus)) {
-    throw new Error('Select the organisation registration or establishment status.');
+    throw new BadRequestException('Select the organisation registration or establishment status.');
   }
 
   const registrationNumber = input.registrationNumber?.trim() ?? '';
@@ -75,31 +77,31 @@ export function validateOrganizationRegistrationDetails(input: {
 
   if (registrationStatus === 'registered') {
     if (!registrationNumber || !registrationAuthority) {
-      throw new Error('For a registered organisation, provide its registration number and registration authority.');
+      throw new BadRequestException('For a registered organisation, provide its registration number and registration authority.');
     }
     if (
       ['Company', 'Partnership', 'Sole proprietorship', 'Cooperative'].includes(organizationType) &&
       !legalStructure
     ) {
-      throw new Error('Select the legal structure for this registered organisation.');
+      throw new BadRequestException('Select the legal structure for this registered organisation.');
     }
   }
 
   if (registrationStatus === 'established_by_law') {
     if (organizationType !== 'Government institution') {
-      throw new Error('Established by law is available only for government or public institutions.');
+      throw new BadRequestException('Established by law is available only for government or public institutions.');
     }
     if (!establishmentReference) {
-      throw new Error('Provide the establishing law, gazette notice, order or official reference.');
+      throw new BadRequestException('Provide the establishing law, gazette notice, order or official reference.');
     }
   }
 
   if (registrationStatus === 'informal' && organizationType === 'Government institution') {
-    throw new Error('A government institution must be registered or established by law.');
+    throw new BadRequestException('A government institution must be registered or established by law.');
   }
 
   if (organizationType === 'Other' && !input.description?.trim()) {
-    throw new Error('Describe the organisation when selecting Other.');
+    throw new BadRequestException('Describe the organisation when selecting Other.');
   }
 
   return {
