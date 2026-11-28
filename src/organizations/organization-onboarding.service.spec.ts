@@ -102,6 +102,7 @@ describe('OrganizationOnboardingService', () => {
       privacyNoticeAcknowledged: true,
       organizationDisplayName: 'Example Foundation',
       organizationType: 'NGO',
+      registrationStatus: 'not_registered',
       contactEmail: 'info@example.org',
       contactPhone: '+254700000000',
       physicalAddress: 'Nairobi, Kenya',
