@@ -14,7 +14,7 @@ import type { Request } from 'express';
 import type { Repository } from 'typeorm';
 import request = require('supertest');
 
-import { User, UserStatus } from '../src/identity/entities/user.entity';
+import { User, UserApprovalStatus, UserStatus } from '../src/identity/entities/user.entity';
 import { AuthSession } from '../src/auth/auth-session.entity';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../src/auth/strategies/jwt.strategy';
@@ -32,6 +32,7 @@ const activeUser = {
   fullName: 'JWT Integration User',
   email: 'jwt-integration@example.com',
   status: UserStatus.ACTIVE,
+  approvalStatus: UserApprovalStatus.APPROVED,
   deactivatedAt: null,
 };
 
