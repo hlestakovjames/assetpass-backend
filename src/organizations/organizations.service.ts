@@ -242,7 +242,6 @@ export class OrganizationsService {
 
   async acceptInvitation(userId: string, organizationId: string, membershipId: string) {
     return this.dataSource.transaction(async (manager) => {
-      await this.assertPermission(actorUserId, organizationId, 'organization.members.manage', manager);
       const membershipRepo = manager.getRepository(OrganizationMembership);
       const membership = await membershipRepo.createQueryBuilder('membership')
         .setLock('pessimistic_write')
@@ -282,6 +281,7 @@ export class OrganizationsService {
       throw new BadRequestException('Only reactivation, suspension or removal is supported from member management.');
     }
     return this.dataSource.transaction(async (manager) => {
+      await this.assertPermission(actorUserId, organizationId, 'organization.members.manage', manager);
       const membershipRepo = manager.getRepository(OrganizationMembership);
       const membership = await membershipRepo.createQueryBuilder('membership')
         .setLock('pessimistic_write')
