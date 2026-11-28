@@ -59,6 +59,7 @@ export function validateOrganizationRegistrationDetails(input: {
   registrationAuthority?: string;
   establishmentReference?: string;
   description?: string;
+  organizationSubtype?: string;
 }) {
   const organizationType = normalizeOrganizationType(input.organizationType);
   if (!organizationType) {
@@ -94,6 +95,10 @@ export function validateOrganizationRegistrationDetails(input: {
     if (!establishmentReference) {
       throw new BadRequestException('Provide the establishing law, gazette notice, order or official reference.');
     }
+  }
+
+  if (['Educational institution', 'Healthcare institution'].includes(organizationType) && !input.organizationSubtype?.trim()) {
+    throw new BadRequestException('Select the institution or facility subtype for this organisation type.');
   }
 
   if (registrationStatus === 'informal' && organizationType === 'Government institution') {
