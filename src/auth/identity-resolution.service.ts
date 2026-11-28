@@ -129,6 +129,11 @@ export class IdentityResolutionService {
            AND membership.organization_id = organization.id
            AND membership.user_id = representative.user_id
            AND membership.status = 'active'
+         INNER JOIN users user_account
+           ON user_account.id = representative.user_id
+           AND user_account.status = 'active'
+           AND user_account.approval_status = 'approved'
+           AND user_account.deactivated_at IS NULL
          WHERE representative.user_id = $1
            AND representative.revoked_at IS NULL
            AND representative.effective_at <= NOW()
