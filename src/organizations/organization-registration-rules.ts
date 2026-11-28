@@ -101,8 +101,8 @@ export function validateOrganizationRegistrationDetails(input: {
     throw new BadRequestException('Select the institution or facility subtype for this organisation type.');
   }
 
-  if (registrationStatus === 'informal' && organizationType === 'Government institution') {
-    throw new BadRequestException('A government institution must be registered or established by law.');
+  if (organizationType === 'Government institution' && !['registered', 'established_by_law'].includes(registrationStatus)) {
+    throw new BadRequestException('A government or public institution must provide its registration details or an establishing-law reference.');
   }
 
   if (organizationType === 'Other' && !input.description?.trim()) {
