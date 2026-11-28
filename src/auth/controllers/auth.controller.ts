@@ -17,6 +17,7 @@ import type { Request, Response } from 'express';
 import { AuthenticatedIdentity, AuthService } from '../auth.service';
 import { IdentityResolutionService } from '../identity-resolution.service';
 import { RegistrationService } from '../registration.service';
+import { PasswordRecoveryService } from '../password-recovery.service';
 import { AccessTokenService } from '../access-token.service';
 import { RefreshTokenService } from '../refresh-token.service';
 import { LoginDto } from '../dto/login.dto';
@@ -39,6 +40,7 @@ export class AuthController {
     private readonly authCookies: AuthCookies,
     private readonly config: ConfigService,
     private readonly registrationService: RegistrationService,
+    private readonly passwordRecovery: PasswordRecoveryService,
     private readonly identityResolution: IdentityResolutionService,
   ) {}
 
@@ -91,6 +93,54 @@ export class AuthController {
   @UseGuards(BrowserOriginGuard)
   resendVerification(@Body() body: { email: string }) {
     return this.registrationService.resend(body?.email);
+  }
+
+  @Post('password-reset/request')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(BrowserOriginGuard)
+  requestPasswordReset(
+    @Body() body: { email?: unknown },
+    @Req() request: Request,
+  ) {
+    return this.passwordRecovery.requestPasswordReset(
+      body?.email,
+      this.getSessionMetadata(request),
+    );
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BrowserOriginGuard)
+  async confirmPasswordReset(
+    @Body() body: { token?: unknown; newPassword?: unknown },
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.passwordRecovery.resetPassword(
+      body?.token,
+      body?.newPassword,
+      this.getSessionMetadata(request),
+    );
+    this.authCookies.clearAuthCookies(response);
+    response.setHeader('Cache-Control', 'no-store');
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, CookieCsrfGuard)
+  async changePassword(
+    @Body() body: { currentPassword?: unknown; newPassword?: unknown },
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.passwordRecovery.changePassword(
+      request.user.id,
+      body?.currentPassword,
+      body?.newPassword,
+      this.getSessionMetadata(request),
+    );
+    this.authCookies.clearAuthCookies(response);
+    response.setHeader('Cache-Control', 'no-store');
   }
 
   @Post('login')
