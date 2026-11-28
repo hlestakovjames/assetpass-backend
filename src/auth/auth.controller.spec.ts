@@ -353,6 +353,7 @@ describe('AuthController', () => {
         {
           sourceIp: '127.0.0.1',
           userAgent: 'AssetPass test client',
+          clientOrigin: null,
         },
       );
 
