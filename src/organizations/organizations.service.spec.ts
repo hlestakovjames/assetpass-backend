@@ -171,6 +171,73 @@ describe('OrganizationsService organization authorization and membership history
     );
   });
 
+  it('preserves the first joined_at date when a removed member accepts a fresh invitation', async () => {
+    const firstJoinedAt = new Date('2022-08-17T00:00:00.000Z');
+    const membership = {
+      id: 'membership-id',
+      organizationId,
+      userId,
+      status: OrganizationMembershipStatus.PENDING,
+      joinedAt: firstJoinedAt,
+    };
+    const membershipQueryBuilder = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(membership),
+    };
+    const membershipRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(membershipQueryBuilder),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const organizationRepository = {
+      findOneBy: jest.fn().mockResolvedValue({ id: organizationId, status: OrganizationStatus.ACTIVE }),
+    };
+    const eventRepository = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const auditRepository = { save: jest.fn().mockResolvedValue(undefined) };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === OrganizationMembership) return membershipRepository;
+        if (entity === Organization) return organizationRepository;
+        if (entity === OrganizationMembershipEvent) return eventRepository;
+        if (entity === PlatformAuditLog) return auditRepository;
+        throw new Error('Unexpected repository requested.');
+      }),
+    };
+    const dataSource = {
+      transaction: jest.fn(async (callback) => callback(manager)),
+    } as unknown as DataSource;
+    const base = createService();
+    const service = new OrganizationsService(
+      dataSource,
+      base.organizations as unknown as Repository<Organization>,
+      base.memberships as unknown as Repository<OrganizationMembership>,
+      {} as Repository<OrganizationRole>,
+      {} as Repository<OrganizationMembershipRole>,
+      {} as Repository<OrganizationRolePermission>,
+      {} as Repository<Permission>,
+      base.users as unknown as Repository<User>,
+    );
+
+    const result = await service.acceptInvitation(userId, organizationId, membership.id);
+
+    expect(result.status).toBe(OrganizationMembershipStatus.ACTIVE);
+    expect(result.joinedAt).toEqual(firstJoinedAt);
+    expect(membership.joinedAt).toEqual(firstJoinedAt);
+    expect(eventRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        membershipId: membership.id,
+        eventType: OrganizationMembershipEventType.MEMBERSHIP_REJOINED,
+        previousStatus: OrganizationMembershipStatus.PENDING,
+        newStatus: OrganizationMembershipStatus.ACTIVE,
+        actorUserId: userId,
+      }),
+    );
+  });
+
   it('retains the previous role assignment when a member role is changed', async () => {
     const membership = {
       id: 'membership-id',
