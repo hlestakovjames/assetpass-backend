@@ -473,6 +473,7 @@ describe('Authentication HTTP integration (e2e)', () => {
         .expect(202);
 
       expect(response.body.message).toContain('If an account exists');
+      expect(response.headers['cache-control']).toBe('no-store');
       expect(passwordRecoveryService.requestPasswordReset).toHaveBeenCalledWith(
         'unknown@example.com',
         expect.objectContaining({ sourceIp: expect.any(String), clientOrigin: TRUSTED_ORIGIN }),
