@@ -27,6 +27,7 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
 export interface PasswordRecoveryMetadata {
   sourceIp?: string | null;
   userAgent?: string | null;
+  clientOrigin?: string | null;
 }
 
 const GENERIC_RESET_MESSAGE =
@@ -200,6 +201,7 @@ export class PasswordRecoveryService {
           request.email,
           request.fullName,
           request.token,
+          metadata.clientOrigin,
         );
       } catch {
         await this.dataSource.getRepository(PasswordResetToken).update(
