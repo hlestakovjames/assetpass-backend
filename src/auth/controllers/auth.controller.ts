@@ -62,6 +62,7 @@ export class AuthController {
         Number(process.env.TRUST_PROXY_HOPS ?? 0) > 0
           ? metadata.sourceIp
           : null,
+      clientOrigin: request.headers.origin ?? null,
     };
   }
 
