@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { getTrustedOrigins } from './utils/trusted-origins';
 
 @Injectable()
 export class EmailDeliveryService {
@@ -128,10 +129,19 @@ export class EmailDeliveryService {
     throw new ServiceUnavailableException('The configured email provider is not supported.');
   }
 
-  async sendPasswordResetEmail(email: string, fullName: string, token: string): Promise<void> {
+  async sendPasswordResetEmail(
+    email: string,
+    fullName: string,
+    token: string,
+    clientOrigin?: string | null,
+  ): Promise<void> {
     const provider = (this.config.get<string>('EMAIL_PROVIDER') ?? 'brevo').toLowerCase();
     const appOrigin = this.config.getOrThrow<string>('APP_ORIGIN');
-    const resetUrl = new URL('/reset-password', appOrigin);
+    const trustedOrigins = getTrustedOrigins(this.config);
+    const selectedOrigin = clientOrigin && trustedOrigins.includes(clientOrigin)
+      ? clientOrigin
+      : appOrigin;
+    const resetUrl = new URL('/reset-password', selectedOrigin);
     // Keep the one-time secret in the URL fragment so it is not sent in HTTP
     // requests or Referer headers before the reset page consumes it.
     resetUrl.hash = token;
