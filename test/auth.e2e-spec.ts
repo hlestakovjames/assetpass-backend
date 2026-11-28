@@ -25,6 +25,7 @@ import { PasswordRecoveryService } from '../src/auth/password-recovery.service';
 import { getTrustedOrigins } from '../src/auth/utils/trusted-origins';
 
 const TRUSTED_ORIGIN = 'http://localhost:3000';
+const MARKETPLACE_ORIGIN = 'http://localhost:3002';
 const UNTRUSTED_ORIGIN = 'https://attacker.example';
 const CSRF_TOKEN = 'a'.repeat(43);
 
@@ -83,6 +84,7 @@ describe('Authentication HTTP integration (e2e)', () => {
   const configValues: Record<string, string | number | boolean> = {
     NODE_ENV: 'test',
     APP_ORIGIN: TRUSTED_ORIGIN,
+    TRUSTED_ORIGINS: 'http://localhost:3000,http://localhost:3002',
     REFRESH_TOKEN_TTL_DAYS: 30,
     JWT_ACCESS_TTL_SECONDS: 900,
   };
@@ -230,6 +232,37 @@ describe('Authentication HTTP integration (e2e)', () => {
         identity.id,
         expect.objectContaining({
           userAgent: 'AssetPass-Integration-Test/1.0',
+        }),
+      );
+    });
+
+    it('authenticates from the Marketplace origin using the same central identity contract', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .set('Origin', MARKETPLACE_ORIGIN)
+        .set('User-Agent', 'AssetPass-Marketplace-Integration-Test/1.0')
+        .send({
+          email: identity.email,
+          password: 'correct-password',
+        })
+        .expect(200);
+
+      expect(response.body.user).toEqual(identity);
+      expect(response.body.refreshToken).toBeUndefined();
+      expect(response.headers['set-cookie']).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('assetpass_refresh=integration-refresh-token'),
+          expect.stringContaining('assetpass_csrf='),
+        ]),
+      );
+      expect(authService.validateCredentials).toHaveBeenCalledWith(
+        identity.email,
+        'correct-password',
+      );
+      expect(refreshTokenService.createSession).toHaveBeenCalledWith(
+        identity.id,
+        expect.objectContaining({
+          userAgent: 'AssetPass-Marketplace-Integration-Test/1.0',
         }),
       );
     });
@@ -480,6 +513,20 @@ describe('Authentication HTTP integration (e2e)', () => {
       );
     });
 
+    it('accepts a password-reset request from the Marketplace origin and preserves that client origin', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/password-reset/request')
+        .set('Origin', MARKETPLACE_ORIGIN)
+        .send({ email: 'person@example.com' })
+        .expect(202);
+
+      expect(response.body.message).toContain('If an account exists');
+      expect(passwordRecoveryService.requestPasswordReset).toHaveBeenCalledWith(
+        'person@example.com',
+        expect.objectContaining({ clientOrigin: MARKETPLACE_ORIGIN }),
+      );
+    });
+
     it('rejects an untrusted origin', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/password-reset/request')
@@ -583,6 +630,27 @@ describe('Authentication HTTP integration (e2e)', () => {
       expect(response.headers['access-control-allow-methods']).toContain(
         'POST',
       );
+      expect(
+        response.headers['access-control-allow-headers'].toLowerCase(),
+      ).toContain('x-csrf-token');
+    });
+
+    it('allows preflight requests from the Marketplace frontend origin', async () => {
+      const response = await request(app.getHttpServer())
+        .options('/api/v1/auth/login')
+        .set('Origin', MARKETPLACE_ORIGIN)
+        .set('Access-Control-Request-Method', 'POST')
+        .set(
+          'Access-Control-Request-Headers',
+          'content-type,x-csrf-token',
+        )
+        .expect(204);
+
+      expect(response.headers['access-control-allow-origin']).toBe(
+        MARKETPLACE_ORIGIN,
+      );
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers['access-control-allow-methods']).toContain('POST');
       expect(
         response.headers['access-control-allow-headers'].toLowerCase(),
       ).toContain('x-csrf-token');
